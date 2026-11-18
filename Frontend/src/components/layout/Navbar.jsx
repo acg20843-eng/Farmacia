@@ -4,16 +4,33 @@ import DropdownMenu from "./DropdownMenu";
 import { obtenerUsuarioActual } from "../../utils/session";
 import { normalizarRol } from "../../utils/roles";
 
+const ENLACES_PRINCIPALES = [
+  { label: "Inicio", to: "/dashboard", end: true },
+  { label: "Productos", to: "/productos" },
+];
+
+const INVENTARIO = [
+  { label: "Lotes", to: "/inventario" },
+  { label: "Movimientos", to: "/movimientos" },
+];
+
+const ETIQUETAS_ROL = {
+  administrador: "Administrador",
+  dueno: "Dueño",
+};
+
 export default function Navbar() {
   const navigate = useNavigate();
   const [usuario, setUsuario] = useState(obtenerUsuarioActual);
   const rol = normalizarRol(usuario?.rol);
   const puedeAdministrarUsuarios = ["administrador", "dueno"].includes(rol);
+  const categoriasAdministracion = [
+    { label: "Categorías", to: "/categorias" },
+    ...(puedeAdministrarUsuarios ? [{ label: "Usuarios", to: "/usuarios" }] : []),
+  ];
 
   useEffect(() => {
-    function actualizarUsuario() {
-      setUsuario(obtenerUsuarioActual());
-    }
+    const actualizarUsuario = () => setUsuario(obtenerUsuarioActual());
 
     window.addEventListener("session-updated", actualizarUsuario);
     return () => window.removeEventListener("session-updated", actualizarUsuario);
@@ -32,35 +49,19 @@ export default function Navbar() {
       </NavLink>
 
       <nav aria-label="Navegación principal">
-        <NavLink to="/dashboard" end>Inicio</NavLink>
-        <NavLink to="/productos">Productos</NavLink>
+        {ENLACES_PRINCIPALES.map(({ label, to, end }) => (
+          <NavLink key={to} to={to} end={end}>{label}</NavLink>
+        ))}
 
-        <DropdownMenu
-          label="Inventario"
-          items={[
-            { label: "Lotes", to: "/inventario" },
-            { label: "Movimientos", to: "/movimientos" },
-          ]}
-        />
-
-        <DropdownMenu
-          label="Administración"
-          items={[
-            { label: "Categorías", to: "/categorias" },
-            ...(puedeAdministrarUsuarios ? [{ label: "Usuarios", to: "/usuarios" }] : []),
-          ]}
-        />
+        <DropdownMenu label="Inventario" items={INVENTARIO} />
+        <DropdownMenu label="Administración" items={categoriasAdministracion} />
       </nav>
 
       <nav aria-label="Cuenta">
         <div className="navbar-usuario" aria-label="Sesión iniciada">
           <span className="navbar-usuario-nombre">{usuario?.nombre || "Usuario"}</span>
           <span className="navbar-usuario-rol">
-            {rol === "administrador"
-              ? "Administrador"
-              : rol === "dueno"
-                ? "Dueño"
-                : "Empleado"}
+            {ETIQUETAS_ROL[rol] || "Empleado"}
           </span>
         </div>
         <button

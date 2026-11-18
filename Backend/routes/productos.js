@@ -1,0 +1,198 @@
+const express = require("express");
+const router = express.Router();
+const db = require("../config/database");
+
+function obtenerDatosProducto(body) {
+    const entrada = body && typeof body === "object" ? body : {};
+    const nombre = typeof entrada.nombre === "string" ? entrada.nombre.trim() : "";
+    const categoriaId = Number(entrada.categoria_id);
+    const precioTexto = String(entrada.precio_venta ?? "");
+    const stockTexto = String(entrada.stock_minimo ?? "5");
+    const estado = entrada.estado ?? "ACTIVO";
+    const camposOpcionales = [
+        ["principio_activo", 150],
+        ["concentracion", 100],
+        ["presentacion", 100],
+        ["descripcion", 65535]
+    ];
+    const datos = {};
+
+    if (!nombre) {
+        return { error: "El nombre es obligatorio" };
+    }
+
+    if (nombre.length > 150) {
+        return { error: "El nombre no puede superar los 150 caracteres" };
+    }
+
+    if (!Number.isInteger(categoriaId) || categoriaId < 1) {
+        return { error: "Selecciona una categoría válida" };
+    }
+
+    if (!/^\d{1,8}(\.\d{1,2})?$/.test(precioTexto)) {
+        return { error: "El precio de venta debe ser un número entre 0 y 99,999,999.99 con máximo 2 decimales" };
+    }
+
+    if (!/^\d+$/.test(stockTexto) || Number(stockTexto) > 2147483647) {
+        return { error: "El stock mínimo debe ser un entero no negativo" };
+    }
+
+    if (!["ACTIVO", "INACTIVO"].includes(estado)) {
+        return { error: "El estado debe ser ACTIVO o INACTIVO" };
+    }
+
+    for (const [campo, maximo] of camposOpcionales) {
+        const valor = entrada[campo];
+        if (valor != null && typeof valor !== "string") {
+            return { error: `El campo ${campo.replace("_", " ")} no es válido` };
+        }
+
+        const texto = typeof valor === "string" ? valor.trim() : "";
+        if (texto.length > maximo) {
+            return { error: `El campo ${campo.replace("_", " ")} supera el límite permitido` };
+        }
+        datos[campo] = texto || null;
+    }
+
+    return {
+        nombre,
+        principio_activo: datos.principio_activo,
+        concentracion: datos.concentracion,
+        presentacion: datos.presentacion,
+        descripcion: datos.descripcion,
+        precio_venta: Number(precioTexto),
+        stock_minimo: Number(stockTexto),
+        categoria_id: categoriaId,
+        estado
+    };
+}
+
+async function existeCategoria(id) {
+    const [categorias] = await db.query(
+        "SELECT id FROM categorias WHERE id = ?",
+        [id]
+    );
+    return categorias.length > 0;
+}
+
+router.get("/", async (req, res) => {
+    try {
+        const [productos] = await db.query(
+            `SELECT p.*, c.nombre AS categoria_nombre
+             FROM productos p
+             JOIN categorias c ON c.id = p.categoria_id
+             ORDER BY p.nombre ASC`
+        );
+        res.json(productos);
+    } catch (error) {
+        res.status(500).json({ mensaje: "Error al consultar productos" });
+    }
+});
+
+router.post("/", async (req, res) => {
+    try {
+        const datos = obtenerDatosProducto(req.body);
+        if (datos.error) {
+            return res.status(400).json({ mensaje: datos.error });
+        }
+
+        if (!await existeCategoria(datos.categoria_id)) {
+            return res.status(400).json({ mensaje: "La categoría seleccionada no existe" });
+        }
+
+        const [resultado] = await db.query(
+            `INSERT INTO productos
+             (nombre, principio_activo, concentracion, presentacion, descripcion,
+              precio_venta, stock_minimo, categoria_id, estado)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                datos.nombre,
+                datos.principio_activo,
+                datos.concentracion,
+                datos.presentacion,
+                datos.descripcion,
+                datos.precio_venta,
+                datos.stock_minimo,
+                datos.categoria_id,
+                datos.estado
+            ]
+        );
+
+        res.status(201).json({
+            mensaje: "Producto registrado correctamente",
+            id: resultado.insertId
+        });
+    } catch (error) {
+        res.status(500).json({ mensaje: "Error al registrar producto" });
+    }
+});
+
+router.put("/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+        const datos = obtenerDatosProducto(req.body);
+        if (datos.error) {
+            return res.status(400).json({ mensaje: datos.error });
+        }
+
+        if (!await existeCategoria(datos.categoria_id)) {
+            return res.status(400).json({ mensaje: "La categoría seleccionada no existe" });
+        }
+
+        const [productos] = await db.query(
+            "SELECT id FROM productos WHERE id = ?",
+            [id]
+        );
+        if (productos.length === 0) {
+            return res.status(404).json({ mensaje: "Producto no encontrado" });
+        }
+
+        await db.query(
+            `UPDATE productos
+             SET nombre = ?, principio_activo = ?, concentracion = ?, presentacion = ?,
+                 descripcion = ?, precio_venta = ?, stock_minimo = ?, categoria_id = ?, estado = ?
+             WHERE id = ?`,
+            [
+                datos.nombre,
+                datos.principio_activo,
+                datos.concentracion,
+                datos.presentacion,
+                datos.descripcion,
+                datos.precio_venta,
+                datos.stock_minimo,
+                datos.categoria_id,
+                datos.estado,
+                id
+            ]
+        );
+
+        res.json({ mensaje: "Producto actualizado correctamente" });
+    } catch (error) {
+        res.status(500).json({ mensaje: "Error al actualizar producto" });
+    }
+});
+
+router.delete("/:id", async (req, res) => {
+    try {
+        const [resultado] = await db.query(
+            "DELETE FROM productos WHERE id = ?",
+            [req.params.id]
+        );
+
+        if (resultado.affectedRows === 0) {
+            return res.status(404).json({ mensaje: "Producto no encontrado" });
+        }
+
+        res.json({ mensaje: "Producto eliminado correctamente" });
+    } catch (error) {
+        if (error.code === "ER_ROW_IS_REFERENCED_2" || error.code === "ER_ROW_IS_REFERENCED") {
+            return res.status(409).json({
+                mensaje: "No se puede eliminar porque tiene lotes asociados"
+            });
+        }
+
+        res.status(500).json({ mensaje: "Error al eliminar producto" });
+    }
+});
+
+module.exports = router;

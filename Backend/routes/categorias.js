@@ -3,6 +3,23 @@ const express = require("express");
 const router = express.Router();
 const db = require("../config/database");
 
+function obtenerDatosCategoria(body) {
+    const nombre = typeof body.nombre === "string" ? body.nombre.trim() : "";
+    const descripcion = typeof body.descripcion === "string"
+        ? body.descripcion.trim() || null
+        : null;
+
+    if (!nombre) {
+        return { error: "El nombre es obligatorio" };
+    }
+
+    if (nombre.length > 100) {
+        return { error: "El nombre no puede superar los 100 caracteres" };
+    }
+
+    return { nombre, descripcion };
+}
+
 // Consultar categorías
 router.get("/", async (req, res) => {
     try {
@@ -19,25 +36,14 @@ router.get("/", async (req, res) => {
 // Registrar categoría
 router.post("/", async (req, res) => {
     try {
-        const { nombre, descripcion } = req.body;
-
-        if (!nombre || !nombre.trim()) {
-            return res.status(400).json({
-                mensaje: "El nombre es obligatorio"
-            });
-        }
-
-        const nombreLimpio = nombre.trim();
-
-        if (nombreLimpio.length > 100) {
-            return res.status(400).json({
-                mensaje: "El nombre no puede superar los 100 caracteres"
-            });
+        const datos = obtenerDatosCategoria(req.body);
+        if (datos.error) {
+            return res.status(400).json({ mensaje: datos.error });
         }
 
         const [existente] = await db.query(
             "SELECT id FROM categorias WHERE nombre = ?",
-            [nombreLimpio]
+            [datos.nombre]
         );
 
         if (existente.length > 0) {
@@ -48,7 +54,7 @@ router.post("/", async (req, res) => {
 
         const [resultado] = await db.query(
             "INSERT INTO categorias (nombre, descripcion) VALUES (?, ?)",
-            [nombreLimpio, descripcion?.trim() || null]
+            [datos.nombre, datos.descripcion]
         );
 
         res.status(201).json({
@@ -65,25 +71,14 @@ router.post("/", async (req, res) => {
 router.put("/:id", async (req, res) => {
     try {
         const { id } = req.params;
-        const { nombre, descripcion } = req.body;
-
-        if (!nombre || !nombre.trim()) {
-            return res.status(400).json({
-                mensaje: "El nombre es obligatorio"
-            });
-        }
-
-        const nombreLimpio = nombre.trim();
-
-        if (nombreLimpio.length > 100) {
-            return res.status(400).json({
-                mensaje: "El nombre no puede superar los 100 caracteres"
-            });
+        const datos = obtenerDatosCategoria(req.body);
+        if (datos.error) {
+            return res.status(400).json({ mensaje: datos.error });
         }
 
         const [existente] = await db.query(
             "SELECT id FROM categorias WHERE nombre = ? AND id != ?",
-            [nombreLimpio, id]
+            [datos.nombre, id]
         );
 
         if (existente.length > 0) {
@@ -94,7 +89,7 @@ router.put("/:id", async (req, res) => {
 
         const [resultado] = await db.query(
             "UPDATE categorias SET nombre = ?, descripcion = ? WHERE id = ?",
-            [nombreLimpio, descripcion?.trim() || null, id]
+            [datos.nombre, datos.descripcion, id]
         );
 
         if (resultado.affectedRows === 0) {

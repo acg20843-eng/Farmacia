@@ -1,5 +1,4 @@
 
-
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
@@ -43,7 +42,7 @@ export default defineConfig({
       // Manifiesto de la PWA
       manifest: {
         name: 'Farmacia Dulce María',
-        short_name: 'Farmacia DM',
+        short_name: 'Farmacia',
         description: 'Sistema de gestión de inventario',
 
         theme_color: '#303030',
@@ -54,7 +53,13 @@ export default defineConfig({
 
         icons: [
           {
-            src: '/cuadrado.png',
+            src: '/pwa-192.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: '/pwa-512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any'
