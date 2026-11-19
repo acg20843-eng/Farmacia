@@ -47,10 +47,21 @@ a { color: inherit; text-decoration: none; }
 }
 
 #root > header > a {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   flex-shrink: 0;
   color: var(--azul-oscuro);
   font-size: 19px;
   letter-spacing: -0.4px;
+}
+
+#root > header > a .navbar-logo {
+  width: 72px;
+  height: 44px;
+  object-fit: cover;
+  object-position: top;
+  flex: 0 0 auto;
 }
 
 #root > header nav {
@@ -161,6 +172,21 @@ a { color: inherit; text-decoration: none; }
 #root > main {
   width: min(1200px, 90%);
   margin: 34px auto 60px;
+}
+
+#root:has(.categorias-page),
+#root:has(.productos-page),
+#root:has(.inventario-page),
+#root:has(.usuarios-page) {
+  width: min(1500px, 100%);
+}
+
+#root > main:has(.categorias-page),
+#root > main:has(.productos-page),
+#root > main:has(.inventario-page),
+#root > main:has(.usuarios-page) {
+  width: 96%;
+  max-width: 1460px;
 }
 
 #root > main > div > section:first-child:has(> h1) {

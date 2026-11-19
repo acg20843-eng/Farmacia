@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import PageTitle from "../../components/common/PageTitle";
+import Notification from "../../components/common/Notification";
 import { apiRequest } from "../../services/api";
 import "./Productos.css";
 
@@ -8,7 +9,6 @@ const formularioInicial = {
   principio_activo: "",
   concentracion: "",
   presentacion: "",
-  descripcion: "",
   precio_venta: "0",
   stock_minimo: "5",
   categoria_id: "",
@@ -24,7 +24,7 @@ export default function Productos() {
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [eliminandoId, setEliminandoId] = useState(null);
-  const [error, setError] = useState("");
+  const [notificacion, setNotificacion] = useState(null);
 
   async function cargarDatos() {
     try {
@@ -33,12 +33,15 @@ export default function Productos() {
         apiRequest("/categorias")
       ]);
       if (!Array.isArray(productosDatos) || !Array.isArray(categoriasDatos)) {
-        throw new Error("El servidor devolvió datos de productos o categorías inválidos.");
+        throw new Error("El servidor devolvió datos de medicamentos o categorías inválidos.");
       }
       setProductos(productosDatos);
       setCategorias(categoriasDatos);
     } catch (error) {
-      setError(error.message || "Error al conectar con el servidor.");
+      setNotificacion({
+        type: "error",
+        message: error.message || "Error al conectar con el servidor."
+      });
     } finally {
       setCargando(false);
     }
@@ -60,24 +63,29 @@ export default function Productos() {
       principio_activo: producto.principio_activo || "",
       concentracion: producto.concentracion || "",
       presentacion: producto.presentacion || "",
-      descripcion: producto.descripcion || "",
       precio_venta: String(producto.precio_venta),
       stock_minimo: String(producto.stock_minimo),
       categoria_id: String(producto.categoria_id),
       estado: producto.estado
     } : formularioInicial);
-    setError("");
   }
 
   function limpiarFormulario() {
     setProductoEditando(null);
     setFormulario(formularioInicial);
-    setError("");
   }
 
   async function handleSubmit(event) {
     event.preventDefault();
-    setError("");
+    const editando = Boolean(productoEditando);
+
+    const confirmacion = editando
+      ? `¿Guardar los cambios del medicamento "${productoEditando.nombre}"?`
+      : `¿Agregar el medicamento "${formulario.nombre.trim()}"?`;
+    if (!window.confirm(confirmacion)) {
+      return;
+    }
+
     setGuardando(true);
 
     try {
@@ -97,26 +105,41 @@ export default function Productos() {
 
       limpiarFormulario();
       await cargarDatos();
+      setNotificacion({
+        type: "success",
+        message: editando
+          ? "Medicamento actualizado"
+          : "Medicamento agregado"
+      });
     } catch (error) {
-      setError(error.message || "Error al guardar el producto.");
+      setNotificacion({
+        type: "error",
+        message: error.message || "Error al guardar el medicamento."
+      });
     } finally {
       setGuardando(false);
     }
   }
 
   async function eliminarProducto(producto) {
-    if (!window.confirm(`¿Eliminar el producto "${producto.nombre}"? Esta acción no se puede deshacer.`)) {
+    if (!window.confirm(`¿Eliminar el medicamento "${producto.nombre}"? Esta acción no se puede deshacer.`)) {
       return;
     }
 
     setEliminandoId(producto.id);
-    setError("");
 
     try {
       await apiRequest(`/productos/${producto.id}`, { method: "DELETE" });
       await cargarDatos();
+      setNotificacion({
+        type: "success",
+        message: "Medicamento eliminado"
+      });
     } catch (error) {
-      setError(error.message || "Error al eliminar el producto.");
+      setNotificacion({
+        type: "error",
+        message: error.message || "Error al eliminar el medicamento."
+      });
     } finally {
       setEliminandoId(null);
     }
@@ -133,12 +156,13 @@ export default function Productos() {
 
   return (
     <div className="productos-page">
-      <PageTitle title="Productos" description="Consulta y administra el catálogo de productos." />
+      <Notification notification={notificacion} onClose={() => setNotificacion(null)} />
+      <PageTitle title="Medicamentos" />
 
       <div className="productos-layout">
-        <section className="productos-panel">
+        <section className="productos-panel productos-form-panel">
           <div className="productos-panel-header">
-            <h2>{productoEditando ? "Editar producto" : "Agregar producto"}</h2>
+            <h2>{productoEditando ? "Editar medicamento" : "Agregar medicamento"}</h2>
             {productoEditando && (
               <button
                 type="button"
@@ -152,8 +176,6 @@ export default function Productos() {
           </div>
 
           <form onSubmit={handleSubmit} className="productos-formulario">
-            {error && <p className="productos-error" role="alert">{error}</p>}
-
             <div className="campo-producto">
               <label htmlFor="nombre-producto">Nombre</label>
               <input
@@ -161,6 +183,7 @@ export default function Productos() {
                 name="nombre"
                 value={formulario.nombre}
                 onChange={handleChange}
+                placeholder="Ej. Marca"
                 maxLength={150}
                 required
               />
@@ -173,6 +196,7 @@ export default function Productos() {
                 name="principio_activo"
                 value={formulario.principio_activo}
                 onChange={handleChange}
+                placeholder="Ej. Paracetamol"
                 maxLength={150}
               />
             </div>
@@ -185,6 +209,7 @@ export default function Productos() {
                   name="concentracion"
                   value={formulario.concentracion}
                   onChange={handleChange}
+                  placeholder="Ej. 500 mg"
                   maxLength={100}
                 />
               </div>
@@ -195,20 +220,10 @@ export default function Productos() {
                   name="presentacion"
                   value={formulario.presentacion}
                   onChange={handleChange}
+                  placeholder="Ej. Caja con 20 tabletas"
                   maxLength={100}
                 />
               </div>
-            </div>
-
-            <div className="campo-producto">
-              <label htmlFor="descripcion-producto">Descripción</label>
-              <textarea
-                id="descripcion-producto"
-                name="descripcion"
-                value={formulario.descripcion}
-                onChange={handleChange}
-                rows={3}
-              />
             </div>
 
             <div className="productos-campos-fila">
@@ -223,6 +238,7 @@ export default function Productos() {
                   step="0.01"
                   value={formulario.precio_venta}
                   onChange={handleChange}
+                  placeholder="Ej. 25.50"
                   required
                 />
               </div>
@@ -236,6 +252,7 @@ export default function Productos() {
                   step="1"
                   value={formulario.stock_minimo}
                   onChange={handleChange}
+                  placeholder="Ej. 10"
                   required
                 />
               </div>
@@ -292,7 +309,7 @@ export default function Productos() {
                   ? "Guardando..."
                   : productoEditando
                     ? "Guardar cambios"
-                    : "Agregar producto"}
+                    : "Agregar medicamento"}
               </button>
             </div>
           </form>
@@ -300,12 +317,12 @@ export default function Productos() {
 
         <section className="productos-panel">
           <div className="productos-panel-header">
-            <h2>Productos registrados</h2>
+            <h2>Medicamentos registrados</h2>
             <span className="productos-total">{productosFiltrados.length}</span>
           </div>
 
           <div className="productos-busqueda">
-            <label htmlFor="buscar-producto">Buscar producto</label>
+            <label htmlFor="buscar-producto">Buscar medicamento</label>
             <input
               id="buscar-producto"
               type="search"
@@ -315,22 +332,19 @@ export default function Productos() {
             />
           </div>
 
-          {error && productos.length === 0 && !cargando && (
-            <p className="productos-error" role="alert">{error}</p>
-          )}
-
           <div className="productos-tabla-contenedor">
             {cargando ? (
-              <p className="productos-mensaje">Cargando productos...</p>
+              <p className="productos-mensaje">Cargando medicamentos...</p>
             ) : productosFiltrados.length === 0 ? (
               <p className="productos-mensaje">
-                {busqueda ? "No se encontraron productos." : "No hay productos registrados."}
+                {busqueda ? "No se encontraron medicamentos." : "No hay medicamentos registrados."}
               </p>
             ) : (
               <table className="productos-tabla">
                 <thead>
                   <tr>
-                    <th>Producto</th>
+                    <th>Código</th>
+                    <th>Medicamento</th>
                     <th>Presentación</th>
                     <th>Precio</th>
                     <th>Stock mínimo</th>
@@ -342,6 +356,7 @@ export default function Productos() {
                 <tbody>
                   {productosFiltrados.map((producto) => (
                     <tr key={producto.id}>
+                      <td>MED-{String(producto.id).padStart(3, "0")}</td>
                       <td>
                         <strong>{producto.nombre}</strong>
                         {producto.principio_activo && <small>{producto.principio_activo}</small>}

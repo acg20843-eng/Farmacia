@@ -12,8 +12,7 @@ function obtenerDatosProducto(body) {
     const camposOpcionales = [
         ["principio_activo", 150],
         ["concentracion", 100],
-        ["presentacion", 100],
-        ["descripcion", 65535]
+        ["presentacion", 100]
     ];
     const datos = {};
 
@@ -59,7 +58,6 @@ function obtenerDatosProducto(body) {
         principio_activo: datos.principio_activo,
         concentracion: datos.concentracion,
         presentacion: datos.presentacion,
-        descripcion: datos.descripcion,
         precio_venta: Number(precioTexto),
         stock_minimo: Number(stockTexto),
         categoria_id: categoriaId,
@@ -78,14 +76,16 @@ async function existeCategoria(id) {
 router.get("/", async (req, res) => {
     try {
         const [productos] = await db.query(
-            `SELECT p.*, c.nombre AS categoria_nombre
+            `SELECT p.id, p.nombre, p.principio_activo, p.concentracion, p.presentacion,
+                    p.precio_venta, p.stock_minimo, p.categoria_id, p.estado, p.fecha_registro,
+                    c.nombre AS categoria_nombre
              FROM productos p
              JOIN categorias c ON c.id = p.categoria_id
              ORDER BY p.nombre ASC`
         );
         res.json(productos);
     } catch (error) {
-        res.status(500).json({ mensaje: "Error al consultar productos" });
+        res.status(500).json({ mensaje: "Error al consultar medicamentos" });
     }
 });
 
@@ -102,15 +102,14 @@ router.post("/", async (req, res) => {
 
         const [resultado] = await db.query(
             `INSERT INTO productos
-             (nombre, principio_activo, concentracion, presentacion, descripcion,
+             (nombre, principio_activo, concentracion, presentacion,
               precio_venta, stock_minimo, categoria_id, estado)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 datos.nombre,
                 datos.principio_activo,
                 datos.concentracion,
                 datos.presentacion,
-                datos.descripcion,
                 datos.precio_venta,
                 datos.stock_minimo,
                 datos.categoria_id,
@@ -119,11 +118,11 @@ router.post("/", async (req, res) => {
         );
 
         res.status(201).json({
-            mensaje: "Producto registrado correctamente",
+            mensaje: "Medicamento registrado correctamente",
             id: resultado.insertId
         });
     } catch (error) {
-        res.status(500).json({ mensaje: "Error al registrar producto" });
+        res.status(500).json({ mensaje: "Error al registrar medicamento" });
     }
 });
 
@@ -144,20 +143,19 @@ router.put("/:id", async (req, res) => {
             [id]
         );
         if (productos.length === 0) {
-            return res.status(404).json({ mensaje: "Producto no encontrado" });
+            return res.status(404).json({ mensaje: "Medicamento no encontrado" });
         }
 
         await db.query(
             `UPDATE productos
              SET nombre = ?, principio_activo = ?, concentracion = ?, presentacion = ?,
-                 descripcion = ?, precio_venta = ?, stock_minimo = ?, categoria_id = ?, estado = ?
+                 precio_venta = ?, stock_minimo = ?, categoria_id = ?, estado = ?
              WHERE id = ?`,
             [
                 datos.nombre,
                 datos.principio_activo,
                 datos.concentracion,
                 datos.presentacion,
-                datos.descripcion,
                 datos.precio_venta,
                 datos.stock_minimo,
                 datos.categoria_id,
@@ -166,9 +164,9 @@ router.put("/:id", async (req, res) => {
             ]
         );
 
-        res.json({ mensaje: "Producto actualizado correctamente" });
+        res.json({ mensaje: "Medicamento actualizado correctamente" });
     } catch (error) {
-        res.status(500).json({ mensaje: "Error al actualizar producto" });
+        res.status(500).json({ mensaje: "Error al actualizar medicamento" });
     }
 });
 
@@ -180,10 +178,10 @@ router.delete("/:id", async (req, res) => {
         );
 
         if (resultado.affectedRows === 0) {
-            return res.status(404).json({ mensaje: "Producto no encontrado" });
+            return res.status(404).json({ mensaje: "Medicamento no encontrado" });
         }
 
-        res.json({ mensaje: "Producto eliminado correctamente" });
+        res.json({ mensaje: "Medicamento eliminado correctamente" });
     } catch (error) {
         if (error.code === "ER_ROW_IS_REFERENCED_2" || error.code === "ER_ROW_IS_REFERENCED") {
             return res.status(409).json({
@@ -191,7 +189,7 @@ router.delete("/:id", async (req, res) => {
             });
         }
 
-        res.status(500).json({ mensaje: "Error al eliminar producto" });
+        res.status(500).json({ mensaje: "Error al eliminar medicamento" });
     }
 });
 

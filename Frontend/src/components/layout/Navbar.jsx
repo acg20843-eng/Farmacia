@@ -6,7 +6,7 @@ import { normalizarRol } from "../../utils/roles";
 
 const ENLACES_PRINCIPALES = [
   { label: "Inicio", to: "/dashboard", end: true },
-  { label: "Productos", to: "/productos" },
+  { label: "Medicamentos", to: "/productos" },
 ];
 
 const INVENTARIO = [
@@ -45,6 +45,7 @@ export default function Navbar() {
   return (
     <header>
       <NavLink to="/dashboard" aria-label="Ir al dashboard">
+        <img className="navbar-logo" src="/img2.jpg" alt="" />
         <strong>Farmacia Dulce María</strong>
       </NavLink>
 

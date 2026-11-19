@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import PageTitle from "../../components/common/PageTitle";
+import Notification from "../../components/common/Notification";
 import { apiRequest } from "../../services/api";
 import "./Categorias.css";
 
@@ -15,7 +16,7 @@ export default function Categorias() {
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [eliminandoId, setEliminandoId] = useState(null);
-  const [error, setError] = useState("");
+  const [notificacion, setNotificacion] = useState(null);
 
   async function cargarCategorias() {
     try {
@@ -25,7 +26,10 @@ export default function Categorias() {
       }
       setCategorias(datos);
     } catch (error) {
-      setError(error.message || "Error al conectar con el servidor.");
+      setNotificacion({
+        type: "error",
+        message: error.message || "Error al conectar con el servidor."
+      });
     } finally {
       setCargando(false);
     }
@@ -46,18 +50,24 @@ export default function Categorias() {
       nombre: categoria.nombre,
       descripcion: categoria.descripcion || ""
     } : formularioInicial);
-    setError("");
   }
 
   function limpiarFormulario() {
     setCategoriaEditando(null);
     setFormulario(formularioInicial);
-    setError("");
   }
 
   async function handleSubmit(event) {
     event.preventDefault();
-    setError("");
+    const editando = Boolean(categoriaEditando);
+
+    const confirmacion = editando
+      ? `¿Guardar los cambios de la categoría "${categoriaEditando.nombre}"?`
+      : `¿Agregar la categoría "${formulario.nombre.trim()}"?`;
+    if (!window.confirm(confirmacion)) {
+      return;
+    }
+
     setGuardando(true);
 
     try {
@@ -74,8 +84,17 @@ export default function Categorias() {
 
       limpiarFormulario();
       await cargarCategorias();
+      setNotificacion({
+        type: "success",
+        message: editando
+          ? "Categoría actualizada"
+          : "Categoría agregada"
+      });
     } catch (error) {
-      setError(error.message || "Error al guardar la categoría.");
+      setNotificacion({
+        type: "error",
+        message: error.message || "Error al guardar la categoría."
+      });
     } finally {
       setGuardando(false);
     }
@@ -87,13 +106,19 @@ export default function Categorias() {
     }
 
     setEliminandoId(categoria.id);
-    setError("");
 
     try {
       await apiRequest(`/categorias/${categoria.id}`, { method: "DELETE" });
       await cargarCategorias();
+      setNotificacion({
+        type: "success",
+        message: "Categoría eliminada"
+      });
     } catch (error) {
-      setError(error.message || "Error al eliminar la categoría.");
+      setNotificacion({
+        type: "error",
+        message: error.message || "Error al eliminar la categoría."
+      });
     } finally {
       setEliminandoId(null);
     }
@@ -101,7 +126,8 @@ export default function Categorias() {
 
   return (
     <div className="categorias-page">
-      <PageTitle title="Categorías" description="Organiza los productos de la farmacia." />
+      <Notification notification={notificacion} onClose={() => setNotificacion(null)} />
+      <PageTitle title="Categorías" />
 
       <div className="categorias-layout">
         <section className="categorias-panel categorias-form-panel">
@@ -120,12 +146,6 @@ export default function Categorias() {
           </div>
 
           <form onSubmit={handleSubmit} className="categorias-formulario">
-            {error && (
-              <p className="categorias-error" role="alert">
-                {error}
-              </p>
-            )}
-
             <div className="campo-categoria">
               <label htmlFor="nombre-categoria">Nombre</label>
               <input
@@ -182,10 +202,6 @@ export default function Categorias() {
             <h2>Categorías registradas</h2>
             <span className="categorias-total">{categorias.length}</span>
           </div>
-
-          {error && !categorias.length && !cargando && (
-            <p className="categorias-error" role="alert">{error}</p>
-          )}
 
           <div className="categorias-tabla-contenedor">
             {cargando ? (

@@ -1,30 +1,201 @@
+import { useEffect, useState } from "react";
 import PageTitle from "../../components/common/PageTitle";
-import EmptyState from "../../components/common/EmptyState";
+import { apiRequest } from "../../services/api";
+import "./Dashboard.css";
+
+const DIAS_PARA_CADUCAR = 30;
+const MAX_FILAS = 6;
+
+function fechaTexto(fecha) {
+  if (fecha instanceof Date) {
+    const mes = String(fecha.getMonth() + 1).padStart(2, "0");
+    const dia = String(fecha.getDate()).padStart(2, "0");
+    return `${fecha.getFullYear()}-${mes}-${dia}`;
+  }
+
+  return String(fecha || "").slice(0, 10);
+}
+
+function diaUtc(fecha) {
+  const texto = fechaTexto(fecha);
+  const partes = /^(\d{4})-(\d{2})-(\d{2})$/.exec(texto);
+  if (!partes) {
+    return null;
+  }
+
+  const [, anio, mes, dia] = partes;
+  const valor = Date.UTC(Number(anio), Number(mes) - 1, Number(dia));
+  const parsed = new Date(valor);
+  return parsed.toISOString().slice(0, 10) === texto
+    ? Math.floor(valor / 86400000)
+    : null;
+}
+
+function fechaHoyUtc() {
+  const hoy = new Date();
+  return Math.floor(Date.UTC(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()) / 86400000);
+}
+
+function mostrarFecha(fecha) {
+  const texto = fechaTexto(fecha);
+  const partes = /^(\d{4})-(\d{2})-(\d{2})$/.exec(texto);
+  return partes ? `${partes[3]}/${partes[2]}/${partes[1]}` : "Fecha no disponible";
+}
+
+function codigoMedicamento(id) {
+  return `MED-${String(id).padStart(3, "0")}`;
+}
+
+function calcularExistenciasBajas(medicamentos, lotes) {
+  const cantidades = new Map();
+  for (const lote of lotes) {
+    const id = Number(lote.producto_id);
+    cantidades.set(id, (cantidades.get(id) || 0) + Number(lote.cantidad || 0));
+  }
+
+  return medicamentos
+    .filter((medicamento) => medicamento.estado === "ACTIVO")
+    .map((medicamento) => ({
+      ...medicamento,
+      existencia: cantidades.get(Number(medicamento.id)) || 0,
+      stockMinimo: Number(medicamento.stock_minimo || 0)
+    }))
+    .filter((medicamento) => medicamento.existencia <= medicamento.stockMinimo)
+    .sort((a, b) => (a.existencia - a.stockMinimo) - (b.existencia - b.stockMinimo));
+}
 
 export default function Dashboard() {
-  // Las alertas se conectarán a la API cuando revisemos las rutas del backend.
-  // La caducidad se calcula por lote, no solamente por producto.
+  const [medicamentos, setMedicamentos] = useState([]);
+  const [lotes, setLotes] = useState([]);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState("");
+
+  async function cargarDashboard() {
+    try {
+      const [medicamentosDatos, lotesDatos] = await Promise.all([
+        apiRequest("/productos"),
+        apiRequest("/lotes")
+      ]);
+
+      if (!Array.isArray(medicamentosDatos) || !Array.isArray(lotesDatos)) {
+        throw new Error("El servidor devolvió datos de inventario inválidos.");
+      }
+
+      setMedicamentos(medicamentosDatos);
+      setLotes(lotesDatos);
+    } catch (error) {
+      setError(error.message || "No se pudo cargar el resumen del inventario.");
+    } finally {
+      setCargando(false);
+    }
+  }
+
+  useEffect(() => {
+    void Promise.resolve().then(cargarDashboard);
+  }, []);
+
+  const hoy = fechaHoyUtc();
+  const lotesPorCaducar = lotes
+    .map((lote) => ({
+      ...lote,
+      diaCaducidad: diaUtc(lote.fecha_caducidad)
+    }))
+    .filter((lote) => lote.diaCaducidad !== null &&
+      lote.diaCaducidad >= hoy &&
+      lote.diaCaducidad <= hoy + DIAS_PARA_CADUCAR)
+    .sort((a, b) => a.diaCaducidad - b.diaCaducidad);
+  const medicamentosBajos = calcularExistenciasBajas(medicamentos, lotes);
+
   return (
-    <div>
+    <div className="dashboard-page">
       <PageTitle
-        title="Panel principal"
-        description="Resumen de alertas importantes del inventario."
+        title="Inicio"
       />
 
-      <section aria-labelledby="caducidad-title">
-        <h2 id="caducidad-title">Productos próximos a caducar</h2>
-        <EmptyState message="Aquí aparecerán los lotes que estén próximos a su fecha de caducidad." />
-      </section>
+      {error && <p className="dashboard-error" role="alert">{error}</p>}
 
-      <section aria-labelledby="stock-title">
-        <h2 id="stock-title">Existencias bajas</h2>
-        <EmptyState message="Aquí aparecerán los productos cuya existencia sea igual o menor al stock mínimo." />
-      </section>
+      <div className="dashboard-resumen">
+        <article className="dashboard-metrica">
+          <span>Medicamentos registrados</span>
+          <strong>{cargando ? "—" : medicamentos.length}</strong>
+        </article>
+        <article className="dashboard-metrica">
+          <span>Lotes registrados</span>
+          <strong>{cargando ? "—" : lotes.length}</strong>
+        </article>
+      </div>
 
-      <section aria-labelledby="productos-title">
-        <h2 id="productos-title">Productos registrados</h2>
-        <p>—</p>
-      </section>
+      <div className="dashboard-grid">
+        <section className="dashboard-card" aria-labelledby="caducidad-title">
+          <div className="dashboard-card-header">
+            <h2 id="caducidad-title">Medicamentos próximos a caducar</h2>
+            <span className="dashboard-total">{cargando ? "—" : lotesPorCaducar.length}</span>
+          </div>
+          <p className="dashboard-ayuda">Lotes que caducan en los próximos 30 días.</p>
+
+          {cargando ? (
+            <p className="dashboard-mensaje">Cargando lotes...</p>
+          ) : lotesPorCaducar.length === 0 ? (
+            <p className="dashboard-mensaje">No hay lotes próximos a caducar.</p>
+          ) : (
+            <ul className="dashboard-lista">
+              {lotesPorCaducar.slice(0, MAX_FILAS).map((lote) => (
+                <li key={lote.id}>
+                  <div>
+                    <strong>{codigoMedicamento(lote.producto_id)} · {lote.medicamento_nombre}</strong>
+                    <small>Lote {lote.numero_lote}</small>
+                  </div>
+                  <span className="dashboard-detalle">
+                    {lote.diaCaducidad === hoy
+                      ? "Hoy"
+                      : `En ${lote.diaCaducidad - hoy} días`}
+                    <small>{mostrarFecha(lote.fecha_caducidad)}</small>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {!cargando && lotesPorCaducar.length > MAX_FILAS && (
+            <p className="dashboard-mas">
+              Y {lotesPorCaducar.length - MAX_FILAS} lotes más.
+            </p>
+          )}
+        </section>
+
+        <section className="dashboard-card" aria-labelledby="stock-title">
+          <div className="dashboard-card-header">
+            <h2 id="stock-title">Existencias bajas</h2>
+            <span className="dashboard-total">{cargando ? "—" : medicamentosBajos.length}</span>
+          </div>
+          <p className="dashboard-ayuda">Medicamentos activos con existencia igual o menor al mínimo.</p>
+
+          {cargando ? (
+            <p className="dashboard-mensaje">Calculando existencias...</p>
+          ) : medicamentosBajos.length === 0 ? (
+            <p className="dashboard-mensaje">No hay medicamentos con existencias bajas.</p>
+          ) : (
+            <ul className="dashboard-lista">
+              {medicamentosBajos.slice(0, MAX_FILAS).map((medicamento) => (
+                <li key={medicamento.id}>
+                  <div>
+                    <strong>{codigoMedicamento(medicamento.id)} · {medicamento.nombre}</strong>
+                    <small>Mínimo: {medicamento.stockMinimo}</small>
+                  </div>
+                  <span className="dashboard-existencia">
+                    {medicamento.existencia}
+                    <small>disponibles</small>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {!cargando && medicamentosBajos.length > MAX_FILAS && (
+            <p className="dashboard-mas">
+              Y {medicamentosBajos.length - MAX_FILAS} medicamentos más.
+            </p>
+          )}
+        </section>
+      </div>
     </div>
   );
 }

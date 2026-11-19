@@ -1,6 +1,7 @@
 
 import { useEffect, useState } from "react";
 import PageTitle from "../../components/common/PageTitle";
+import Notification from "../../components/common/Notification";
 import { guardarUsuarioActual, obtenerUsuarioActual } from "../../utils/session";
 import { normalizarRol } from "../../utils/roles";
 import { apiRequest } from "../../services/api";
@@ -79,7 +80,7 @@ export default function Usuarios() {
   const [guardando, setGuardando] = useState(false);
   const [eliminandoId, setEliminandoId] = useState(null);
   const [usuarioEditando, setUsuarioEditando] = useState(null);
-  const [error, setError] = useState("");
+  const [notificacion, setNotificacion] = useState(null);
   const puedeInicializarDueno =
     rolActual === "administrador" &&
     !usuarios.some((usuario) => normalizarRol(usuario.rol) === "dueno") &&
@@ -94,7 +95,10 @@ export default function Usuarios() {
       });
       setUsuarios(datos.usuarios || []);
     } catch (error) {
-      setError(error.message || "Error al conectar con el servidor.");
+      setNotificacion({
+        type: "error",
+        message: error.message || "Error al conectar con el servidor."
+      });
     } finally {
       setCargando(false);
     }
@@ -157,7 +161,6 @@ export default function Usuarios() {
     } : formularioInicial);
     setMostrarPassword(false);
     setMostrarConfirmarPassword(false);
-    setError("");
   }
 
   function limpiarFormulario() {
@@ -165,23 +168,32 @@ export default function Usuarios() {
     setMostrarConfirmarPassword(false);
     setUsuarioEditando(null);
     setFormulario(formularioInicial);
-    setError("");
   }
 
   async function handleSubmit(event) {
     event.preventDefault();
-    setError("");
+    const editando = Boolean(usuarioEditando);
 
     if (
       (formulario.password || formulario.confirmarPassword) &&
       formulario.password !== formulario.confirmarPassword
     ) {
-      setError("Las contraseñas no coinciden.");
+      setNotificacion({ type: "error", message: "Las contraseñas no coinciden." });
       return;
     }
 
     if ((!usuarioEditando || formulario.password) && formulario.password.length < 8) {
-      setError("La contraseña debe tener al menos 8 caracteres.");
+      setNotificacion({
+        type: "error",
+        message: "La contraseña debe tener al menos 8 caracteres."
+      });
+      return;
+    }
+
+    const confirmacion = editando
+      ? `¿Guardar los cambios del usuario "${usuarioEditando.nombre}"?`
+      : `¿Agregar al usuario "${formulario.nombre.trim()}"?`;
+    if (!window.confirm(confirmacion)) {
       return;
     }
 
@@ -214,9 +226,18 @@ export default function Usuarios() {
 
       limpiarFormulario();
       await cargarUsuarios();
+      setNotificacion({
+        type: "success",
+        message: editando
+          ? "Usuario actualizado"
+          : "Usuario agregado"
+      });
 
     } catch (error) {
-      setError(error.message || "Error al guardar el usuario.");
+      setNotificacion({
+        type: "error",
+        message: error.message || "Error al guardar el usuario."
+      });
     } finally {
       setGuardando(false);
     }
@@ -232,7 +253,6 @@ export default function Usuarios() {
     }
 
     setEliminandoId(usuario.id);
-    setError("");
 
     try {
       await apiRequest(`/usuarios/${usuario.id}`, {
@@ -241,8 +261,15 @@ export default function Usuarios() {
       });
 
       await cargarUsuarios();
+      setNotificacion({
+        type: "success",
+        message: "Usuario eliminado"
+      });
     } catch (error) {
-      setError(error.message || "Error al eliminar el usuario.");
+      setNotificacion({
+        type: "error",
+        message: error.message || "Error al eliminar el usuario."
+      });
     } finally {
       setEliminandoId(null);
     }
@@ -250,6 +277,7 @@ export default function Usuarios() {
 
   return (
     <div className="usuarios-page">
+      <Notification notification={notificacion} onClose={() => setNotificacion(null)} />
       <PageTitle
         title="Usuarios"
       />
@@ -271,12 +299,6 @@ export default function Usuarios() {
           </div>
 
           <form onSubmit={handleSubmit} className="usuarios-formulario">
-            {error && (
-              <p className="usuarios-error" role="alert">
-                {error}
-              </p>
-            )}
-
             <div className="campo-usuario">
               <label htmlFor="nombre">Nombre completo</label>
               <input
@@ -387,10 +409,6 @@ export default function Usuarios() {
             <h2>Usuarios registrados</h2>
             <span className="usuarios-total">{usuarios.length}</span>
           </div>
-
-          {error && !usuarios.length && !cargando && (
-            <p className="usuarios-error" role="alert">{error}</p>
-          )}
 
           <div className="usuarios-tabla-contenedor">
             {cargando ? (
