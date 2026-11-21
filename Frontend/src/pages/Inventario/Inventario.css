@@ -152,6 +152,10 @@
   cursor: pointer;
 }
 
+#root main .btn-nuevo-lote:hover:not(:disabled) {
+  background: #dceaf7;
+}
+
 .lotes-busqueda {
   display: flex;
   flex-direction: column;

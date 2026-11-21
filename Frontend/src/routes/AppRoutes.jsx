@@ -12,6 +12,8 @@ import Movimientos from "../pages/Movimientos/Movimientos";
 import Usuarios from "../pages/Usuarios/Usuarios";
 //import Perfil from "../pages/Perfil/Perfil";
 
+const ROLES_ADMINISTRACION = ["administrador", "dueno"];
+
 function RequiereAcceso({ children, roles }) {
   const usuario = obtenerUsuarioActual();
 
@@ -41,13 +43,20 @@ export function AppRoutes() {
       >
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/productos" element={<Productos />} />
-        <Route path="/categorias" element={<Categorias />} />
+        <Route
+          path="/categorias"
+          element={
+            <RequiereAcceso roles={ROLES_ADMINISTRACION}>
+              <Categorias />
+            </RequiereAcceso>
+          }
+        />
         <Route path="/inventario" element={<Inventario />} />
         <Route path="/movimientos" element={<Movimientos />} />
         <Route
           path="/usuarios"
           element={
-            <RequiereAcceso roles={["administrador", "dueno"]}>
+            <RequiereAcceso roles={ROLES_ADMINISTRACION}>
               <Usuarios />
             </RequiereAcceso>
           }

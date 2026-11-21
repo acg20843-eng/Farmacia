@@ -1,0 +1,238 @@
+.movimientos-page {
+  width: 100%;
+  min-width: 0;
+}
+
+.movimientos-layout {
+  display: grid;
+  grid-template-columns: minmax(360px, 400px) minmax(0, 1fr);
+  align-items: start;
+  gap: 18px;
+}
+
+.movimientos-panel {
+  min-width: 0;
+  padding: 20px;
+  background: #fff;
+  border: 1px solid #dce3eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(35, 65, 95, 0.06);
+}
+
+.movimientos-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.movimientos-panel-header h2 {
+  margin: 0;
+  color: #263b50;
+  font-size: 17px;
+}
+
+.movimientos-formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+
+.campo-movimiento,
+.campo-filtro-movimiento {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+#root main .campo-movimiento label,
+.campo-filtro-movimiento label {
+  margin: 0;
+  color: #44566a;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.campo-movimiento label span {
+  color: #718096;
+  font-weight: 400;
+}
+
+#root main .campo-movimiento input,
+#root main .campo-movimiento select,
+#root main .campo-movimiento textarea,
+.campo-filtro-movimiento input,
+.campo-filtro-movimiento select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  background: #fff;
+  border: 1px solid #ccd6e1;
+  border-radius: 5px;
+  color: #333;
+  font-size: 12px;
+  outline: none;
+}
+
+#root main .campo-movimiento textarea {
+  resize: vertical;
+}
+
+#root main .campo-movimiento input:focus,
+#root main .campo-movimiento select:focus,
+#root main .campo-movimiento textarea:focus,
+.campo-filtro-movimiento input:focus,
+.campo-filtro-movimiento select:focus {
+  border-color: #2563a6;
+  box-shadow: 0 0 0 2px rgba(37, 99, 166, 0.1);
+}
+
+.movimientos-formulario-acciones {
+  display: flex;
+}
+
+#root main .movimientos-formulario-acciones button {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 10px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#root main .btn-registrar-movimiento {
+  background: #198754;
+  color: #fff;
+  border: 1px solid #198754;
+}
+
+#root main .btn-registrar-movimiento:hover:not(:disabled) {
+  background: #146c43;
+}
+
+#root main .movimientos-formulario-acciones button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+#root main .movimientos-ayuda {
+  margin: 0;
+  color: #718096;
+  font-size: 11px;
+}
+
+.movimientos-total {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 14px;
+  background: #edf4fb;
+  color: #2563a6;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.movimientos-filtros {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 140px;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.movimientos-tabla-contenedor {
+  width: 100%;
+  overflow-x: auto;
+  background: #fff;
+  border: 1px solid #dce3eb;
+  border-radius: 8px;
+}
+
+.movimientos-tabla {
+  width: 100%;
+  min-width: 650px;
+  border-collapse: collapse;
+}
+
+.movimientos-tabla th,
+.movimientos-tabla td {
+  padding: 10px 8px;
+  text-align: left;
+  border-bottom: 1px solid #e8edf3;
+  font-size: 11px;
+}
+
+.movimientos-tabla th {
+  background: #f5f8fc;
+  color: #34465a;
+  font-weight: 600;
+}
+
+.movimientos-tabla td {
+  color: #444;
+}
+
+.movimientos-tabla tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.movimientos-tabla td strong,
+.movimientos-tabla td small {
+  display: block;
+}
+
+.movimientos-tabla td small {
+  margin-top: 3px;
+  color: #718096;
+}
+
+.movimiento-tipo {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.movimiento-tipo-entrada {
+  background: #e4f5eb;
+  color: #237744;
+}
+
+.movimiento-tipo-salida {
+  background: #fbeaea;
+  color: #b52d2d;
+}
+
+.movimientos-mensaje {
+  padding: 25px;
+  text-align: center;
+  color: #777;
+  font-size: 13px;
+}
+
+@media (max-width: 1200px) {
+  .movimientos-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .movimientos-form-panel {
+    width: min(100%, 440px);
+  }
+}
+
+@media (max-width: 520px) {
+  .movimientos-panel {
+    padding: 15px;
+  }
+
+  .movimientos-filtros {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

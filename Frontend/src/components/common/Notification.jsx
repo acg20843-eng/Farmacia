@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import "./Notification.css";
 
 export default function Notification({ notification, onClose }) {
@@ -15,7 +16,7 @@ export default function Notification({ notification, onClose }) {
     return null;
   }
 
-  return (
+  return createPortal(
     <div
       className={`app-notification app-notification-${notification.type}`}
       role="status"
@@ -25,6 +26,7 @@ export default function Notification({ notification, onClose }) {
       <button type="button" onClick={onClose} aria-label="Cerrar notificación">
         ×
       </button>
-    </div>
+    </div>,
+    document.body
   );
 }

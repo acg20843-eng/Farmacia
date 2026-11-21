@@ -1,15 +1,12 @@
-import { useState } from "react";
 import { NavLink } from "react-router-dom";
 
-export default function DropdownMenu({ label, items = [] }) {
-  const [open, setOpen] = useState(false);
-
+export default function DropdownMenu({ label, items = [], open, onToggle, onClose }) {
   return (
     <div>
       <button
         type="button"
         aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
+        onClick={onToggle}
       >
         {label} {open ? "▲" : "▼"}
       </button>
@@ -20,7 +17,7 @@ export default function DropdownMenu({ label, items = [] }) {
             <NavLink
               key={item.to}
               to={item.to}
-              onClick={() => setOpen(false)}
+              onClick={onClose}
             >
               {item.label}
             </NavLink>

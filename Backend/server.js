@@ -7,6 +7,7 @@ const db = require("./config/database");
 const categoriasRoutes = require("./routes/categorias");
 const productosRoutes = require("./routes/productos");
 const lotesRoutes = require("./routes/lotes");
+const movimientosRoutes = require("./routes/movimientos");
 const authRoutes = require("./routes/auth");
 const usuariosRoutes = require("./routes/usuarios");
 
@@ -19,6 +20,7 @@ app.use(express.json());
 app.use("/api/categorias", categoriasRoutes);
 app.use("/api/productos", productosRoutes);
 app.use("/api/lotes", lotesRoutes);
+app.use("/api/movimientos", movimientosRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/usuarios", usuariosRoutes);
 

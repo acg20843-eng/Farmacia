@@ -22,16 +22,38 @@
 }
 
 .app-notification button {
-  width: 18px;
-  height: 18px;
+  display: inline-flex;
+  flex: 0 0 26px;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  min-width: 26px;
+  min-height: 26px;
+  height: 26px;
   padding: 0;
   border: 0;
   border-radius: 50%;
   background: transparent;
-  color: #f04444;
-  font-size: 15px;
-  line-height: 16px;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1;
   cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.app-notification button:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+.app-notification button:active {
+  transform: none;
+}
+
+.app-notification button:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
 }
 
 @media (max-width: 520px) {

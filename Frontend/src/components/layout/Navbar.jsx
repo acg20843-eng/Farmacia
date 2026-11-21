@@ -6,12 +6,9 @@ import { normalizarRol } from "../../utils/roles";
 
 const ENLACES_PRINCIPALES = [
   { label: "Inicio", to: "/dashboard", end: true },
+  { label: "Movimientos", to: "/movimientos", end: true },
   { label: "Medicamentos", to: "/productos" },
-];
-
-const INVENTARIO = [
   { label: "Lotes", to: "/inventario" },
-  { label: "Movimientos", to: "/movimientos" },
 ];
 
 const ETIQUETAS_ROL = {
@@ -22,18 +19,28 @@ const ETIQUETAS_ROL = {
 export default function Navbar() {
   const navigate = useNavigate();
   const [usuario, setUsuario] = useState(obtenerUsuarioActual);
+  const [enLinea, setEnLinea] = useState(() => navigator.onLine);
+  const [menuAbierto, setMenuAbierto] = useState(null);
   const rol = normalizarRol(usuario?.rol);
-  const puedeAdministrarUsuarios = ["administrador", "dueno"].includes(rol);
+  const puedeAdministrar = ["administrador", "dueno"].includes(rol);
   const categoriasAdministracion = [
     { label: "Categorías", to: "/categorias" },
-    ...(puedeAdministrarUsuarios ? [{ label: "Usuarios", to: "/usuarios" }] : []),
+    { label: "Usuarios", to: "/usuarios" },
   ];
 
   useEffect(() => {
     const actualizarUsuario = () => setUsuario(obtenerUsuarioActual());
+    const actualizarConexion = () => setEnLinea(navigator.onLine);
 
     window.addEventListener("session-updated", actualizarUsuario);
-    return () => window.removeEventListener("session-updated", actualizarUsuario);
+    window.addEventListener("online", actualizarConexion);
+    window.addEventListener("offline", actualizarConexion);
+
+    return () => {
+      window.removeEventListener("session-updated", actualizarUsuario);
+      window.removeEventListener("online", actualizarConexion);
+      window.removeEventListener("offline", actualizarConexion);
+    };
   }, []);
 
   function cerrarSesion() {
@@ -51,11 +58,27 @@ export default function Navbar() {
 
       <nav aria-label="Navegación principal">
         {ENLACES_PRINCIPALES.map(({ label, to, end }) => (
-          <NavLink key={to} to={to} end={end}>{label}</NavLink>
+          <NavLink
+            key={to}
+            to={to}
+            end={end}
+            onClick={() => setMenuAbierto(null)}
+          >
+            {label}
+          </NavLink>
         ))}
 
-        <DropdownMenu label="Inventario" items={INVENTARIO} />
-        <DropdownMenu label="Administración" items={categoriasAdministracion} />
+        {puedeAdministrar && (
+          <DropdownMenu
+            label="Administración"
+            items={categoriasAdministracion}
+            open={menuAbierto === "administracion"}
+            onToggle={() => setMenuAbierto((actual) => (
+              actual === "administracion" ? null : "administracion"
+            ))}
+            onClose={() => setMenuAbierto(null)}
+          />
+        )}
       </nav>
 
       <nav aria-label="Cuenta">
@@ -63,6 +86,12 @@ export default function Navbar() {
           <span className="navbar-usuario-nombre">{usuario?.nombre || "Usuario"}</span>
           <span className="navbar-usuario-rol">
             {ETIQUETAS_ROL[rol] || "Empleado"}
+          </span>
+          <span
+            className={`navbar-estado ${enLinea ? "en-linea" : "sin-conexion"}`}
+            role="status"
+          >
+            {enLinea ? "En línea" : "Sin conexión"}
           </span>
         </div>
         <button

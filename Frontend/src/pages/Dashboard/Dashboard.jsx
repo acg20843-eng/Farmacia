@@ -42,6 +42,15 @@ function mostrarFecha(fecha) {
   return partes ? `${partes[3]}/${partes[2]}/${partes[1]}` : "Fecha no disponible";
 }
 
+function mostrarFechaHora(fecha) {
+  const texto = fecha instanceof Date
+    ? `${fechaTexto(fecha)} ${String(fecha.getHours()).padStart(2, "0")}:${String(fecha.getMinutes()).padStart(2, "0")}`
+    : String(fecha || "");
+  const dia = mostrarFecha(texto.slice(0, 10));
+  const hora = texto.slice(11, 16);
+  return hora ? `${dia} · ${hora}` : dia;
+}
+
 function codigoMedicamento(id) {
   return `MED-${String(id).padStart(3, "0")}`;
 }
@@ -67,22 +76,29 @@ function calcularExistenciasBajas(medicamentos, lotes) {
 export default function Dashboard() {
   const [medicamentos, setMedicamentos] = useState([]);
   const [lotes, setLotes] = useState([]);
+  const [movimientos, setMovimientos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
 
   async function cargarDashboard() {
     try {
-      const [medicamentosDatos, lotesDatos] = await Promise.all([
+      const [medicamentosDatos, lotesDatos, movimientosDatos] = await Promise.all([
         apiRequest("/productos"),
-        apiRequest("/lotes")
+        apiRequest("/lotes"),
+        apiRequest("/movimientos")
       ]);
 
-      if (!Array.isArray(medicamentosDatos) || !Array.isArray(lotesDatos)) {
+      if (
+        !Array.isArray(medicamentosDatos) ||
+        !Array.isArray(lotesDatos) ||
+        !Array.isArray(movimientosDatos)
+      ) {
         throw new Error("El servidor devolvió datos de inventario inválidos.");
       }
 
       setMedicamentos(medicamentosDatos);
       setLotes(lotesDatos);
+      setMovimientos(movimientosDatos);
     } catch (error) {
       setError(error.message || "No se pudo cargar el resumen del inventario.");
     } finally {
@@ -95,6 +111,9 @@ export default function Dashboard() {
   }, []);
 
   const hoy = fechaHoyUtc();
+  const movimientosHoy = movimientos.filter(
+    (movimiento) => fechaTexto(movimiento.fecha) === fechaTexto(new Date())
+  ).length;
   const lotesPorCaducar = lotes
     .map((lote) => ({
       ...lote,
@@ -105,11 +124,16 @@ export default function Dashboard() {
       lote.diaCaducidad <= hoy + DIAS_PARA_CADUCAR)
     .sort((a, b) => a.diaCaducidad - b.diaCaducidad);
   const medicamentosBajos = calcularExistenciasBajas(medicamentos, lotes);
+  const unidadesEnInventario = lotes.reduce(
+    (total, lote) => total + Number(lote.cantidad || 0),
+    0
+  );
 
   return (
     <div className="dashboard-page">
       <PageTitle
         title="Inicio"
+        description="Resumen del inventario y actividad reciente de la farmacia."
       />
 
       {error && <p className="dashboard-error" role="alert">{error}</p>}
@@ -122,6 +146,14 @@ export default function Dashboard() {
         <article className="dashboard-metrica">
           <span>Lotes registrados</span>
           <strong>{cargando ? "—" : lotes.length}</strong>
+        </article>
+        <article className="dashboard-metrica">
+          <span>Unidades en inventario</span>
+          <strong>{cargando ? "—" : unidadesEnInventario.toLocaleString("es-MX")}</strong>
+        </article>
+        <article className="dashboard-metrica">
+          <span>Movimientos de hoy</span>
+          <strong>{cargando ? "—" : movimientosHoy}</strong>
         </article>
       </div>
 
@@ -193,6 +225,36 @@ export default function Dashboard() {
             <p className="dashboard-mas">
               Y {medicamentosBajos.length - MAX_FILAS} medicamentos más.
             </p>
+          )}
+        </section>
+
+        <section className="dashboard-card" aria-labelledby="movimientos-title">
+          <div className="dashboard-card-header">
+            <h2 id="movimientos-title">Movimientos recientes</h2>
+          </div>
+          <p className="dashboard-ayuda">Últimas entradas y salidas registradas.</p>
+
+          {cargando ? (
+            <p className="dashboard-mensaje">Cargando movimientos...</p>
+          ) : movimientos.length === 0 ? (
+            <p className="dashboard-mensaje">Aún no hay movimientos registrados.</p>
+          ) : (
+            <ul className="dashboard-lista">
+              {movimientos.slice(0, MAX_FILAS).map((movimiento) => (
+                <li key={movimiento.id}>
+                  <div>
+                    <strong>{movimiento.medicamento_nombre}</strong>
+                    <small>
+                      {movimiento.usuario_nombre} · {mostrarFechaHora(movimiento.fecha)}
+                    </small>
+                  </div>
+                  <span className={`dashboard-movimiento dashboard-movimiento-${movimiento.tipo.toLocaleLowerCase()}`}>
+                    {movimiento.tipo === "ENTRADA" ? "+" : "−"}{movimiento.cantidad}
+                    <small>{movimiento.tipo === "ENTRADA" ? "Entrada" : "Salida"}</small>
+                  </span>
+                </li>
+              ))}
+            </ul>
           )}
         </section>
       </div>

@@ -162,6 +162,10 @@
   cursor: pointer;
 }
 
+#root main .btn-nuevo-producto:hover:not(:disabled) {
+  background: #dceaf7;
+}
+
 .productos-busqueda {
   display: flex;
   flex-direction: column;

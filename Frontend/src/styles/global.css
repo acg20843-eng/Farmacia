@@ -90,6 +90,7 @@ a { color: inherit; text-decoration: none; }
 
 #root > header nav > a:hover,
 #root > header nav > div > button:hover,
+#root > header nav > div > button[aria-expanded="true"],
 #root > header nav > a.active {
   color: var(--azul-oscuro);
   background: var(--azul-claro);
@@ -149,6 +150,37 @@ a { color: inherit; text-decoration: none; }
   font-size: 10px;
 }
 
+.navbar-estado {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  font-size: 10px;
+}
+
+.navbar-estado::before {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  content: "";
+}
+
+.navbar-estado.en-linea {
+  color: #25834a;
+}
+
+.navbar-estado.en-linea::before {
+  background: #2eaa5e;
+}
+
+.navbar-estado.sin-conexion {
+  color: #b74444;
+}
+
+.navbar-estado.sin-conexion::before {
+  background: #d45858;
+}
+
 #root > header nav[aria-label="Cuenta"] .navbar-cerrar-sesion {
   min-height: 34px;
   padding: 0 12px;
@@ -177,6 +209,8 @@ a { color: inherit; text-decoration: none; }
 #root:has(.categorias-page),
 #root:has(.productos-page),
 #root:has(.inventario-page),
+#root:has(.dashboard-page),
+#root:has(.movimientos-page),
 #root:has(.usuarios-page) {
   width: min(1500px, 100%);
 }
@@ -184,6 +218,8 @@ a { color: inherit; text-decoration: none; }
 #root > main:has(.categorias-page),
 #root > main:has(.productos-page),
 #root > main:has(.inventario-page),
+#root > main:has(.dashboard-page),
+#root > main:has(.movimientos-page),
 #root > main:has(.usuarios-page) {
   width: 96%;
   max-width: 1460px;
@@ -340,6 +376,7 @@ a { color: inherit; text-decoration: none; }
     flex: 1;
     text-align: left;
   }
+  .navbar-estado { justify-content: flex-start; }
   #root > main > div > section:not(:first-child) { padding: 17px; }
   #root > main:has(> h1) { padding: 25px 20px; }
 }
