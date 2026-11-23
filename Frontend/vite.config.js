@@ -10,7 +10,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
 
-      // Habilitar PWA durante el desarrollo
+      // Habilitar la PWA durante el desarrollo
       devOptions: {
         enabled: true,
         type: 'module'
@@ -21,7 +21,7 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
 
         globPatterns: [
-          '**/*.{js,css,html,ico,png,svg,woff2}'
+          '**/*.{js,css,html,ico}'
         ],
 
         runtimeCaching: [

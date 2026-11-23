@@ -73,6 +73,7 @@ async function existeCategoria(id) {
     return categorias.length > 0;
 }
 
+//Listar medicamentos
 router.get("/", async (req, res) => {
     try {
         const [productos] = await db.query(
@@ -83,12 +84,14 @@ router.get("/", async (req, res) => {
              JOIN categorias c ON c.id = p.categoria_id
              ORDER BY p.nombre ASC`
         );
-        res.json(productos);
+        return res.json(productos);
     } catch (error) {
-        res.status(500).json({ mensaje: "Error al consultar medicamentos" });
+        console.error("Error al consultar medicamentos:", error.message);
+        return res.status(500).json({ mensaje: "Error al consultar medicamentos" });
     }
 });
 
+//Agregar medicamento
 router.post("/", async (req, res) => {
     try {
         const datos = obtenerDatosProducto(req.body);
@@ -117,15 +120,17 @@ router.post("/", async (req, res) => {
             ]
         );
 
-        res.status(201).json({
+        return res.status(201).json({
             mensaje: "Medicamento registrado correctamente",
             id: resultado.insertId
         });
     } catch (error) {
-        res.status(500).json({ mensaje: "Error al registrar medicamento" });
+        console.error("Error al registrar medicamento:", error.message);
+        return res.status(500).json({ mensaje: "Error al registrar medicamento" });
     }
 });
 
+//Actualizar medicamento
 router.put("/:id", async (req, res) => {
     try {
         const { id } = req.params;
@@ -164,12 +169,14 @@ router.put("/:id", async (req, res) => {
             ]
         );
 
-        res.json({ mensaje: "Medicamento actualizado correctamente" });
+        return res.json({ mensaje: "Medicamento actualizado correctamente" });
     } catch (error) {
-        res.status(500).json({ mensaje: "Error al actualizar medicamento" });
+        console.error("Error al actualizar medicamento:", error.message);
+        return res.status(500).json({ mensaje: "Error al actualizar medicamento" });
     }
 });
 
+//Eliminar medicamento
 router.delete("/:id", async (req, res) => {
     try {
         const [resultado] = await db.query(
@@ -181,7 +188,7 @@ router.delete("/:id", async (req, res) => {
             return res.status(404).json({ mensaje: "Medicamento no encontrado" });
         }
 
-        res.json({ mensaje: "Medicamento eliminado correctamente" });
+        return res.json({ mensaje: "Medicamento eliminado correctamente" });
     } catch (error) {
         if (error.code === "ER_ROW_IS_REFERENCED_2" || error.code === "ER_ROW_IS_REFERENCED") {
             return res.status(409).json({
@@ -189,7 +196,8 @@ router.delete("/:id", async (req, res) => {
             });
         }
 
-        res.status(500).json({ mensaje: "Error al eliminar medicamento" });
+        console.error("Error al eliminar medicamento:", error.message);
+        return res.status(500).json({ mensaje: "Error al eliminar medicamento" });
     }
 });
 

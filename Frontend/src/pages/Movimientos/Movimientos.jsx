@@ -1,8 +1,14 @@
 import { useEffect, useState } from "react";
 import PageTitle from "../../components/common/PageTitle";
 import Notification from "../../components/common/Notification";
+import CrudForm, { CrudInput, CrudSelect, CrudTextarea } from "../../components/common/CrudForm";
+import CrudList from "../../components/common/CrudList";
+import CrudTable from "../../components/common/CrudTable";
+import useCrudForm from "../../hooks/useCrudForm";
 import { apiRequest } from "../../services/api";
-import "./Movimientos.css";
+import { obtenerUsuarioActual } from "../../utils/session";
+import { normalizarRol } from "../../utils/roles";
+import { codigoMedicamento, fechaISO, formatearFecha } from "../../utils/formato";
 
 const formularioInicial = {
   lote_id: "",
@@ -10,39 +16,36 @@ const formularioInicial = {
   motivo: ""
 };
 
-function mostrarFecha(valor) {
+function mostrarFechaHora(valor) {
   const fecha = valor instanceof Date
-    ? `${valor.getFullYear()}-${String(valor.getMonth() + 1).padStart(2, "0")}-${String(valor.getDate()).padStart(2, "0")} ${String(valor.getHours()).padStart(2, "0")}:${String(valor.getMinutes()).padStart(2, "0")}`
+    ? `${fechaISO(valor)} ${String(valor.getHours()).padStart(2, "0")}:${String(valor.getMinutes()).padStart(2, "0")}`
     : String(valor || "");
-  const partes = /^(\d{4})-(\d{2})-(\d{2})/.exec(fecha);
-  if (!partes) {
-    return "—";
+  const dia = formatearFecha(fecha);
+  if (dia === "—") {
+    return dia;
   }
+
   const hora = fecha.slice(11, 16);
-  return `${partes[3]}/${partes[2]}/${partes[1]}${hora ? ` ${hora}` : ""}`;
-}
-
-function codigoMedicamento(id) {
-  return `MED-${String(id).padStart(3, "0")}`;
-}
-
-function fechaParaOrdenar(valor) {
-  if (valor instanceof Date) {
-    const mes = String(valor.getMonth() + 1).padStart(2, "0");
-    const dia = String(valor.getDate()).padStart(2, "0");
-    return `${valor.getFullYear()}-${mes}-${dia}`;
-  }
-  return String(valor || "").slice(0, 10);
+  return hora ? `${dia} ${hora}` : dia;
 }
 
 export default function Movimientos() {
+  const rolUsuario = normalizarRol(obtenerUsuarioActual()?.rol);
+  const puedeAdministrar = ["administrador", "dueno"].includes(rolUsuario);
   const [lotes, setLotes] = useState([]);
   const [movimientos, setMovimientos] = useState([]);
-  const [formulario, setFormulario] = useState(formularioInicial);
+  const [movimientoEditando, setMovimientoEditando] = useState(null);
+  const {
+    values: formulario,
+    handleChange: actualizarFormulario,
+    fill: llenarFormulario,
+    reset: reiniciarFormulario
+  } = useCrudForm(formularioInicial);
   const [busqueda, setBusqueda] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("");
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
+  const [eliminandoId, setEliminandoId] = useState(null);
   const [notificacion, setNotificacion] = useState(null);
 
   async function cargarDatos() {
@@ -72,11 +75,24 @@ export default function Movimientos() {
   }, []);
 
   function handleChange(event) {
-    const { name, value } = event.target;
-    setFormulario((prev) => ({ ...prev, [name]: value }));
-    if (name === "lote_id") {
+    actualizarFormulario(event);
+    if (event.target.name === "lote_id") {
       setNotificacion(null);
     }
+  }
+
+  function limpiarFormulario() {
+    setMovimientoEditando(null);
+    reiniciarFormulario();
+  }
+
+  function abrirEdicion(movimiento) {
+    setMovimientoEditando(movimiento);
+    llenarFormulario({
+      lote_id: String(movimiento.lote_id),
+      cantidad: String(movimiento.cantidad),
+      motivo: movimiento.motivo || ""
+    });
   }
 
   async function handleSubmit(event) {
@@ -87,54 +103,98 @@ export default function Movimientos() {
       return;
     }
 
-    if (Number(formulario.cantidad) > Number(lote.cantidad)) {
+    const editando = Boolean(movimientoEditando);
+    const existenciasDisponibles = Number(lote.cantidad) + (
+      movimientoEditando?.tipo === "SALIDA"
+        ? Number(movimientoEditando.cantidad)
+        : 0
+    );
+    if (
+      (!editando || movimientoEditando.tipo === "SALIDA") &&
+      Number(formulario.cantidad) > existenciasDisponibles
+    ) {
       setNotificacion({
         type: "error",
-        message: `La cantidad supera las existencias del lote (${lote.cantidad}).`
+        message: `La cantidad supera las existencias disponibles (${existenciasDisponibles}).`
       });
       return;
     }
 
-    if (!window.confirm(`¿Registrar la salida de ${formulario.cantidad} unidades del lote "${lote.numero_lote}"?`)) {
+    const confirmacion = editando
+      ? `¿Guardar los cambios del movimiento #${movimientoEditando.id}?`
+      : `¿Registrar la salida de ${formulario.cantidad} unidades del lote "${lote.numero_lote}"?`;
+    if (!window.confirm(confirmacion)) {
       return;
     }
 
     setGuardando(true);
-    let movimientoRegistrado = false;
+    let movimientoGuardado = false;
 
     try {
-      await apiRequest("/movimientos", {
-        method: "POST",
-        body: JSON.stringify({
+      const datos = editando
+        ? {
+          cantidad: Number(formulario.cantidad),
+          motivo: formulario.motivo
+        }
+        : {
           ...formulario,
           tipo: "SALIDA",
           lote_id: Number(formulario.lote_id),
           cantidad: Number(formulario.cantidad)
-        })
-      });
-      movimientoRegistrado = true;
-      setFormulario(formularioInicial);
+        };
+      await apiRequest(
+        editando ? `/movimientos/${movimientoEditando.id}` : "/movimientos",
+        {
+          method: editando ? "PUT" : "POST",
+          body: JSON.stringify(datos)
+        }
+      );
+      movimientoGuardado = true;
+      limpiarFormulario();
       await cargarDatos();
       setNotificacion({
         type: "success",
-        message: "Salida registrada"
+        message: editando ? "Movimiento actualizado" : "Salida registrada"
       });
     } catch (error) {
       setNotificacion({
         type: "error",
-        message: movimientoRegistrado
-          ? `Movimiento registrado, pero no se pudo actualizar la lista: ${error.message}`
-          : error.message || "Error al registrar el movimiento."
+        message: movimientoGuardado
+          ? `Movimiento guardado, pero no se pudo actualizar la lista: ${error.message}`
+          : error.message || "Error al guardar el movimiento."
       });
     } finally {
       setGuardando(false);
     }
   }
 
+  async function eliminarMovimiento(movimiento) {
+    if (!window.confirm(`¿Eliminar el movimiento #${movimiento.id}? Las existencias del lote se ajustarán y esta acción no se puede deshacer.`)) {
+      return;
+    }
+
+    setEliminandoId(movimiento.id);
+    try {
+      await apiRequest(`/movimientos/${movimiento.id}`, { method: "DELETE" });
+      await cargarDatos();
+      setNotificacion({ type: "success", message: "Movimiento eliminado" });
+    } catch (error) {
+      setNotificacion({
+        type: "error",
+        message: error.message || "Error al eliminar el movimiento."
+      });
+    } finally {
+      setEliminandoId(null);
+    }
+  }
+
   const lotesParaSeleccionar = lotes
-    .filter((lote) => Number(lote.cantidad) > 0)
+    .filter((lote) => (
+      Number(lote.cantidad) > 0 ||
+      Number(lote.id) === Number(movimientoEditando?.lote_id)
+    ))
     .sort((a, b) => (
-      fechaParaOrdenar(a.fecha_caducidad).localeCompare(fechaParaOrdenar(b.fecha_caducidad)) ||
+      fechaISO(a.fecha_caducidad).localeCompare(fechaISO(b.fecha_caducidad)) ||
       String(a.numero_lote).localeCompare(String(b.numero_lote), undefined, { numeric: true })
     ));
   const consulta = busqueda.trim().toLocaleLowerCase();
@@ -147,158 +207,168 @@ export default function Movimientos() {
       movimiento.motivo
     ].some((valor) => valor?.toLocaleLowerCase().includes(consulta))
   ));
+  const columnas = [
+    { label: "Fecha", render: (movimiento) => mostrarFechaHora(movimiento.fecha) },
+    {
+      label: "Medicamento / lote",
+      render: (movimiento) => (
+        <>
+          <strong>{movimiento.medicamento_nombre}</strong>
+          <small>{codigoMedicamento(movimiento.producto_id)} · Lote {movimiento.numero_lote}</small>
+        </>
+      )
+    },
+    {
+      label: "Tipo",
+      render: (movimiento) => {
+        const entrada = movimiento.tipo === "ENTRADA";
+        return (
+          <span className={`crud-status crud-status--${entrada ? "positive" : "negative"}`}>
+            {entrada ? "Entrada" : "Salida"}
+          </span>
+        );
+      }
+    },
+    { label: "Cantidad", render: (movimiento) => movimiento.cantidad },
+    { label: "Usuario", render: (movimiento) => movimiento.usuario_nombre },
+    { label: "Motivo", render: (movimiento) => movimiento.motivo || "—" },
+    ...(puedeAdministrar ? [{
+      label: "Acciones",
+      render: (movimiento) => (
+        <div className="crud-row-actions">
+          <button
+            type="button"
+            className="crud-action-edit"
+            onClick={() => abrirEdicion(movimiento)}
+            disabled={guardando || eliminandoId !== null}
+          >
+            Editar
+          </button>
+          <button
+            type="button"
+            className="crud-action-delete"
+            onClick={() => eliminarMovimiento(movimiento)}
+            disabled={guardando || eliminandoId !== null}
+          >
+            {eliminandoId === movimiento.id ? "Eliminando..." : "Eliminar"}
+          </button>
+        </div>
+      )
+    }] : [])
+  ];
 
   return (
-    <div className="movimientos-page">
+    <div className="crud-page">
       <Notification notification={notificacion} onClose={() => setNotificacion(null)} />
       <PageTitle title="Movimientos" />
 
-      <div className="movimientos-layout">
-        <section className="movimientos-panel movimientos-form-panel">
-          <div className="movimientos-panel-header">
-            <h2>Registrar salida</h2>
-          </div>
+      <div className="crud-layout">
+        <CrudForm
+          title={movimientoEditando ? "Editar movimiento" : "Registrar salida"}
+          editing={Boolean(movimientoEditando)}
+          onSubmit={handleSubmit}
+          onReset={limpiarFormulario}
+          saving={guardando}
+          submitLabel={movimientoEditando ? "Guardar cambios" : "Registrar salida"}
+          savingLabel={movimientoEditando ? "Guardando..." : "Registrando..."}
+          submitDisabled={cargando || lotesParaSeleccionar.length === 0}
+        >
+          <CrudSelect
+            id="lote-movimiento"
+            label="Lote para salida"
+            name="lote_id"
+            value={formulario.lote_id}
+            onChange={handleChange}
+            disabled={Boolean(movimientoEditando)}
+            required
+          >
+            <option value="">Selecciona un lote disponible</option>
+            {lotesParaSeleccionar.map((lote) => (
+              <option key={lote.id} value={lote.id}>
+                {codigoMedicamento(lote.producto_id)} · {lote.medicamento_nombre} · Lote {lote.numero_lote} ({lote.cantidad} disp.)
+              </option>
+            ))}
+          </CrudSelect>
 
-          <form onSubmit={handleSubmit} className="movimientos-formulario">
-            <div className="campo-movimiento">
-              <label htmlFor="lote-movimiento">Lote para salida</label>
-              <select
-                id="lote-movimiento"
-                name="lote_id"
-                value={formulario.lote_id}
-                onChange={handleChange}
-                required
-              >
-                <option value="">Selecciona un lote disponible</option>
-                {lotesParaSeleccionar.map((lote) => (
-                  <option key={lote.id} value={lote.id}>
-                    {codigoMedicamento(lote.producto_id)} · {lote.medicamento_nombre} · Lote {lote.numero_lote} ({lote.cantidad} disp.)
-                  </option>
-                ))}
-              </select>
+          {!cargando && lotes.length > 0 && lotesParaSeleccionar.length === 0 && (
+            <p className="crud-help">
+              No hay lotes con existencias disponibles para registrar una salida.
+            </p>
+          )}
+
+          <CrudInput
+            id="cantidad-movimiento"
+            label="Cantidad"
+            name="cantidad"
+            type="number"
+            min="1"
+            max="2147483647"
+            step="1"
+            value={formulario.cantidad}
+            onChange={handleChange}
+            required
+          />
+
+          <CrudTextarea
+            id="motivo-movimiento"
+            label={<>Motivo <span>(opcional)</span></>}
+            name="motivo"
+            value={formulario.motivo}
+            onChange={handleChange}
+            maxLength={255}
+            rows={3}
+            placeholder="Ej. Venta"
+          />
+
+          {!cargando && lotes.length === 0 && (
+            <p className="crud-help">
+              Registra un lote con existencias en Inventario antes de registrar una salida.
+            </p>
+          )}
+        </CrudForm>
+
+        <CrudList
+          title="Historial de movimientos"
+          count={movimientosFiltrados.length}
+          loading={cargando}
+          loadingMessage="Cargando movimientos..."
+          emptyMessage={
+            busqueda || filtroTipo
+              ? "No se encontraron movimientos."
+              : "Aún no hay movimientos registrados."
+          }
+          toolbar={
+            <div className="crud-filter-row">
+              <div className="crud-field">
+                <label htmlFor="buscar-movimiento">Buscar</label>
+                <input
+                  id="buscar-movimiento"
+                  type="search"
+                  value={busqueda}
+                  onChange={(event) => setBusqueda(event.target.value)}
+                  placeholder="Medicamento, lote, usuario o motivo"
+                />
+              </div>
+              <div className="crud-field">
+                <label htmlFor="filtro-tipo-movimiento">Tipo</label>
+                <select
+                  id="filtro-tipo-movimiento"
+                  value={filtroTipo}
+                  onChange={(event) => setFiltroTipo(event.target.value)}
+                >
+                  <option value="">Todos</option>
+                  <option value="SALIDA">Salidas</option>
+                </select>
+              </div>
             </div>
-
-            {!cargando && lotes.length > 0 && lotesParaSeleccionar.length === 0 && (
-              <p className="movimientos-ayuda">
-                No hay lotes con existencias disponibles para registrar una salida.
-              </p>
-            )}
-
-            <div className="campo-movimiento">
-              <label htmlFor="cantidad-movimiento">Cantidad</label>
-              <input
-                id="cantidad-movimiento"
-                name="cantidad"
-                type="number"
-                min="1"
-                max="2147483647"
-                step="1"
-                value={formulario.cantidad}
-                onChange={handleChange}
-                required
-              />
-            </div>
-
-            <div className="campo-movimiento">
-              <label htmlFor="motivo-movimiento">Motivo <span>(opcional)</span></label>
-              <textarea
-                id="motivo-movimiento"
-                name="motivo"
-                value={formulario.motivo}
-                onChange={handleChange}
-                maxLength={255}
-                rows={3}
-                placeholder="Ej. Venta"
-              />
-            </div>
-
-            <div className="movimientos-formulario-acciones">
-              <button
-                type="submit"
-                className="btn-registrar-movimiento"
-                disabled={guardando || cargando || lotesParaSeleccionar.length === 0}
-              >
-                {guardando ? "Registrando..." : "Registrar salida"}
-              </button>
-            </div>
-            {!cargando && lotes.length === 0 && (
-              <p className="movimientos-ayuda">Registra un lote con existencias en Inventario antes de registrar una salida.</p>
-            )}
-          </form>
-        </section>
-
-        <section className="movimientos-panel">
-          <div className="movimientos-panel-header">
-            <h2>Historial de movimientos</h2>
-            <span className="movimientos-total">{movimientosFiltrados.length}</span>
-          </div>
-
-          <div className="movimientos-filtros">
-            <div className="campo-filtro-movimiento">
-              <label htmlFor="buscar-movimiento">Buscar</label>
-              <input
-                id="buscar-movimiento"
-                type="search"
-                value={busqueda}
-                onChange={(event) => setBusqueda(event.target.value)}
-                placeholder="Medicamento, lote, usuario o motivo"
-              />
-            </div>
-            <div className="campo-filtro-movimiento">
-              <label htmlFor="filtro-tipo-movimiento">Tipo</label>
-              <select
-                id="filtro-tipo-movimiento"
-                value={filtroTipo}
-                onChange={(event) => setFiltroTipo(event.target.value)}
-              >
-                <option value="">Todos</option>
-                <option value="SALIDA">Salidas</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="movimientos-tabla-contenedor">
-            {cargando ? (
-              <p className="movimientos-mensaje">Cargando movimientos...</p>
-            ) : movimientosFiltrados.length === 0 ? (
-              <p className="movimientos-mensaje">
-                {busqueda || filtroTipo ? "No se encontraron movimientos." : "Aún no hay movimientos registrados."}
-              </p>
-            ) : (
-              <table className="movimientos-tabla">
-                <thead>
-                  <tr>
-                    <th>Fecha</th>
-                    <th>Medicamento / lote</th>
-                    <th>Tipo</th>
-                    <th>Cantidad</th>
-                    <th>Usuario</th>
-                    <th>Motivo</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {movimientosFiltrados.map((movimiento) => (
-                    <tr key={movimiento.id}>
-                      <td>{mostrarFecha(movimiento.fecha)}</td>
-                      <td>
-                        <strong>{movimiento.medicamento_nombre}</strong>
-                        <small>{codigoMedicamento(movimiento.producto_id)} · Lote {movimiento.numero_lote}</small>
-                      </td>
-                      <td>
-                        <span className={`movimiento-tipo movimiento-tipo-${movimiento.tipo.toLocaleLowerCase()}`}>
-                          {movimiento.tipo === "ENTRADA" ? "Entrada" : "Salida"}
-                        </span>
-                      </td>
-                      <td>{movimiento.cantidad}</td>
-                      <td>{movimiento.usuario_nombre}</td>
-                      <td>{movimiento.motivo || "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </section>
+          }
+        >
+          <CrudTable
+            className="crud-table crud-table--movements"
+            columns={columnas}
+            rows={movimientosFiltrados}
+          />
+        </CrudList>
       </div>
     </div>
   );

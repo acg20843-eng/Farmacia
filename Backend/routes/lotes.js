@@ -71,16 +71,7 @@ async function existeNumeroLote(productoId, numeroLote, excluirId = null) {
     return lotes.length > 0;
 }
 
-function manejarErrorDuplicado(error, res, fallback) {
-    if (error.code === "ER_DUP_ENTRY") {
-        return res.status(409).json({
-            mensaje: "Ese número de lote ya está registrado para este medicamento"
-        });
-    }
-
-    return res.status(500).json({ mensaje: fallback });
-}
-
+//Listar lotes
 router.get("/", async (req, res) => {
     try {
         const [lotes] = await db.query(
@@ -89,12 +80,14 @@ router.get("/", async (req, res) => {
              JOIN productos p ON p.id = l.producto_id
              ORDER BY l.fecha_caducidad ASC, p.nombre ASC, l.numero_lote ASC`
         );
-        res.json(lotes);
+        return res.json(lotes);
     } catch (error) {
-        res.status(500).json({ mensaje: "Error al consultar lotes" });
+        console.error("Error al consultar lotes:", error.message);
+        return res.status(500).json({ mensaje: "Error al consultar lotes" });
     }
 });
 
+//Agregar lote
 router.post("/", async (req, res) => {
     try {
         const datos = obtenerDatosLote(req.body);
@@ -125,15 +118,23 @@ router.post("/", async (req, res) => {
             ]
         );
 
-        res.status(201).json({
+        return res.status(201).json({
             mensaje: "Lote registrado",
             id: resultado.insertId
         });
     } catch (error) {
-        return manejarErrorDuplicado(error, res, "Error al registrar lote");
+        if (error.code === "ER_DUP_ENTRY") {
+            return res.status(409).json({
+                mensaje: "Ese número de lote ya está registrado para este medicamento"
+            });
+        }
+
+        console.error("Error al registrar lote:", error.message);
+        return res.status(500).json({ mensaje: "Error al registrar lote" });
     }
 });
 
+//Actualizar lote
 router.put("/:id", async (req, res) => {
     try {
         const id = Number(req.params.id);
@@ -176,12 +177,20 @@ router.put("/:id", async (req, res) => {
             ]
         );
 
-        res.json({ mensaje: "Lote actualizado" });
+        return res.json({ mensaje: "Lote actualizado" });
     } catch (error) {
-        return manejarErrorDuplicado(error, res, "Error al actualizar lote");
+        if (error.code === "ER_DUP_ENTRY") {
+            return res.status(409).json({
+                mensaje: "Ese número de lote ya está registrado para este medicamento"
+            });
+        }
+
+        console.error("Error al actualizar lote:", error.message);
+        return res.status(500).json({ mensaje: "Error al actualizar lote" });
     }
 });
 
+//Eliminar lote
 router.delete("/:id", async (req, res) => {
     try {
         const [resultado] = await db.query(
@@ -193,7 +202,7 @@ router.delete("/:id", async (req, res) => {
             return res.status(404).json({ mensaje: "Lote no encontrado" });
         }
 
-        res.json({ mensaje: "Lote eliminado" });
+        return res.json({ mensaje: "Lote eliminado" });
     } catch (error) {
         if (error.code === "ER_ROW_IS_REFERENCED_2" || error.code === "ER_ROW_IS_REFERENCED") {
             return res.status(409).json({
@@ -201,7 +210,8 @@ router.delete("/:id", async (req, res) => {
             });
         }
 
-        res.status(500).json({ mensaje: "Error al eliminar lote" });
+        console.error("Error al eliminar lote:", error.message);
+        return res.status(500).json({ mensaje: "Error al eliminar lote" });
     }
 });
 

@@ -69,6 +69,7 @@ async function autenticarGestorUsuarios(req, res, next) {
 
 router.use(autenticarGestorUsuarios);
 
+//Listar usuarios
 router.get("/", async (req, res) => {
     try {
         const [usuarios] = await db.query(
@@ -85,17 +86,103 @@ router.get("/", async (req, res) => {
         });
     } catch (error) {
         console.error("Error al consultar usuarios:", error.message);
-        return res.status(500).json({
-            mensaje: "Error al consultar usuarios"
-        });
+        return res.status(500).json({ mensaje: "Error al consultar usuarios" });
     }
 });
 
+//Agregar usuario
+router.post("/", async (req, res) => {
+    try {
+        const { nombre, correo, password, activo } = req.body;
+        const rol = normalizarRol(req.body?.rol);
+
+        if (
+            typeof nombre !== "string" ||
+            typeof correo !== "string" ||
+            typeof password !== "string" ||
+            !nombre.trim() ||
+            !correo.trim() ||
+            !password
+        ) {
+            return res.status(400).json({
+                mensaje: "Completa todos los campos obligatorios"
+            });
+        }
+
+        const nombreLimpio = nombre.trim();
+        const correoLimpio = correo.trim().toLowerCase();
+        const estadoActivo = Number(activo);
+
+        if (nombreLimpio.length > 100 || correoLimpio.length > 150) {
+            return res.status(400).json({
+                mensaje: "El nombre o correo supera la longitud permitida"
+            });
+        }
+
+        if (password.length < 8) {
+            return res.status(400).json({
+                mensaje: "La contraseña debe tener al menos 8 caracteres"
+            });
+        }
+
+        if (!["empleado", "dueno", "administrador"].includes(rol)) {
+            return res.status(400).json({
+                mensaje: "El rol seleccionado no es válido"
+            });
+        }
+
+        if (req.usuario.rol !== "dueno" && rol === "dueno") {
+            return res.status(403).json({
+                mensaje: "Solo el Dueño puede asignar ese rol"
+            });
+        }
+
+        if (!["0", "1"].includes(String(activo))) {
+            return res.status(400).json({
+                mensaje: "El estado seleccionado no es válido"
+            });
+        }
+
+        const [existentes] = await db.query(
+            "SELECT id FROM usuarios WHERE correo = ? LIMIT 1",
+            [correoLimpio]
+        );
+
+        if (existentes.length > 0) {
+            return res.status(409).json({
+                mensaje: "Ya existe un usuario registrado con ese correo"
+            });
+        }
+
+        const passwordHash = await bcrypt.hash(password, 10);
+        const [resultado] = await db.query(
+            `INSERT INTO usuarios (nombre, correo, password, rol, activo)
+             VALUES (?, ?, ?, ?, ?)`,
+            [nombreLimpio, correoLimpio, passwordHash, rol, estadoActivo]
+        );
+
+        return res.status(201).json({
+            mensaje: "Usuario registrado correctamente",
+            id: resultado.insertId
+        });
+    } catch (error) {
+        if (error.code === "ER_DUP_ENTRY") {
+            return res.status(409).json({
+                mensaje: "Ya existe un usuario registrado con ese correo"
+            });
+        }
+
+        console.error("Error al registrar usuario:", error.message);
+        return res.status(500).json({ mensaje: "Error al registrar usuario" });
+    }
+});
+
+//Actualizar usuario
 router.put("/:id", async (req, res) => {
     try {
         const id = Number(req.params.id);
-        const { nombre, correo, password, activo } = req.body || {};
-        const rol = normalizarRol(req.body?.rol);
+    const { nombre, correo, password, activo } = req.body || {};
+    const rol = normalizarRol(req.body?.rol);
 
         if (!Number.isSafeInteger(id) || id < 1) {
             return res.status(400).json({
@@ -243,12 +330,11 @@ router.put("/:id", async (req, res) => {
         }
 
         console.error("Error al actualizar usuario:", error.message);
-        return res.status(500).json({
-            mensaje: "Error al actualizar usuario"
-        });
+        return res.status(500).json({ mensaje: "Error al actualizar usuario" });
     }
 });
 
+//Eliminar usuario
 router.delete("/:id", async (req, res) => {
     try {
         const id = Number(req.params.id);
@@ -315,102 +401,10 @@ router.delete("/:id", async (req, res) => {
             });
         }
 
-        return res.json({
-            mensaje: "Usuario eliminado correctamente"
-        });
+        return res.json({ mensaje: "Usuario eliminado correctamente" });
     } catch (error) {
         console.error("Error al eliminar usuario:", error.message);
-        return res.status(500).json({
-            mensaje: "Error al eliminar usuario"
-        });
-    }
-});
-
-router.post("/", async (req, res) => {
-    try {
-        const { nombre, correo, password, activo } = req.body;
-        const rol = normalizarRol(req.body?.rol);
-
-        if (
-            typeof nombre !== "string" ||
-            typeof correo !== "string" ||
-            typeof password !== "string" ||
-            !nombre.trim() ||
-            !correo.trim() ||
-            !password
-        ) {
-            return res.status(400).json({
-                mensaje: "Completa todos los campos obligatorios"
-            });
-        }
-
-        const nombreLimpio = nombre.trim();
-        const correoLimpio = correo.trim().toLowerCase();
-        const estadoActivo = Number(activo);
-
-        if (nombreLimpio.length > 100 || correoLimpio.length > 150) {
-            return res.status(400).json({
-                mensaje: "El nombre o correo supera la longitud permitida"
-            });
-        }
-
-        if (password.length < 8) {
-            return res.status(400).json({
-                mensaje: "La contraseña debe tener al menos 8 caracteres"
-            });
-        }
-
-        if (!["empleado", "dueno", "administrador"].includes(rol)) {
-            return res.status(400).json({
-                mensaje: "El rol seleccionado no es válido"
-            });
-        }
-
-        if (req.usuario.rol !== "dueno" && rol === "dueno") {
-            return res.status(403).json({
-                mensaje: "Solo el Dueño puede asignar ese rol"
-            });
-        }
-
-        if (!["0", "1"].includes(String(activo))) {
-            return res.status(400).json({
-                mensaje: "El estado seleccionado no es válido"
-            });
-        }
-
-        const [existentes] = await db.query(
-            "SELECT id FROM usuarios WHERE correo = ? LIMIT 1",
-            [correoLimpio]
-        );
-
-        if (existentes.length > 0) {
-            return res.status(409).json({
-                mensaje: "Ya existe un usuario registrado con ese correo"
-            });
-        }
-
-        const passwordHash = await bcrypt.hash(password, 10);
-        const [resultado] = await db.query(
-            `INSERT INTO usuarios (nombre, correo, password, rol, activo)
-             VALUES (?, ?, ?, ?, ?)`,
-            [nombreLimpio, correoLimpio, passwordHash, rol, estadoActivo]
-        );
-
-        return res.status(201).json({
-            mensaje: "Usuario registrado correctamente",
-            id: resultado.insertId
-        });
-    } catch (error) {
-        if (error.code === "ER_DUP_ENTRY") {
-            return res.status(409).json({
-                mensaje: "Ya existe un usuario registrado con ese correo"
-            });
-        }
-
-        console.error("Error al registrar usuario:", error.message);
-        return res.status(500).json({
-            mensaje: "Error al registrar usuario"
-        });
+        return res.status(500).json({ mensaje: "Error al eliminar usuario" });
     }
 });
 

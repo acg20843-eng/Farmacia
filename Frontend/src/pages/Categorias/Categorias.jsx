@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import PageTitle from "../../components/common/PageTitle";
 import Notification from "../../components/common/Notification";
+import CrudForm, { CrudInput, CrudTextarea } from "../../components/common/CrudForm";
+import CrudList from "../../components/common/CrudList";
+import CrudTable from "../../components/common/CrudTable";
+import useCrudForm from "../../hooks/useCrudForm";
 import { apiRequest } from "../../services/api";
-import "./Categorias.css";
 
 const formularioInicial = {
   nombre: "",
@@ -12,7 +15,12 @@ const formularioInicial = {
 export default function Categorias() {
   const [categorias, setCategorias] = useState([]);
   const [categoriaEditando, setCategoriaEditando] = useState(null);
-  const [formulario, setFormulario] = useState(formularioInicial);
+  const {
+    values: formulario,
+    handleChange,
+    fill: llenarFormulario,
+    reset: reiniciarFormulario
+  } = useCrudForm(formularioInicial);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [eliminandoId, setEliminandoId] = useState(null);
@@ -39,14 +47,9 @@ export default function Categorias() {
     void Promise.resolve().then(cargarCategorias);
   }, []);
 
-  function handleChange(event) {
-    const { name, value } = event.target;
-    setFormulario((prev) => ({ ...prev, [name]: value }));
-  }
-
   function abrirFormulario(categoria = null) {
     setCategoriaEditando(categoria);
-    setFormulario(categoria ? {
+    llenarFormulario(categoria ? {
       nombre: categoria.nombre,
       descripcion: categoria.descripcion || ""
     } : formularioInicial);
@@ -54,7 +57,7 @@ export default function Categorias() {
 
   function limpiarFormulario() {
     setCategoriaEditando(null);
-    setFormulario(formularioInicial);
+    reiniciarFormulario();
   }
 
   async function handleSubmit(event) {
@@ -124,133 +127,84 @@ export default function Categorias() {
     }
   }
 
+  const columnas = [
+    { label: "Nombre", render: (categoria) => categoria.nombre },
+    { label: "Descripción", render: (categoria) => categoria.descripcion || "—" },
+    {
+      label: "Acciones",
+      render: (categoria) => (
+        <div className="crud-row-actions">
+          <button
+            type="button"
+            className="crud-action-edit"
+            onClick={() => abrirFormulario(categoria)}
+            disabled={guardando || eliminandoId !== null}
+            title="Editar categoría"
+          >
+            Editar
+          </button>
+          <button
+            type="button"
+            className="crud-action-delete"
+            onClick={() => eliminarCategoria(categoria)}
+            disabled={guardando || eliminandoId !== null}
+            title="Eliminar categoría"
+          >
+            {eliminandoId === categoria.id ? "Eliminando..." : "Eliminar"}
+          </button>
+        </div>
+      )
+    }
+  ];
+
   return (
-    <div className="categorias-page">
+    <div className="crud-page">
       <Notification notification={notificacion} onClose={() => setNotificacion(null)} />
       <PageTitle title="Categorías" />
 
-      <div className="categorias-layout">
-        <section className="categorias-panel categorias-form-panel">
-          <div className="categorias-panel-header">
-            <h2>{categoriaEditando ? "Editar categoría" : "Agregar categoría"}</h2>
-            {categoriaEditando && (
-              <button
-                type="button"
-                className="btn-nueva-categoria"
-                onClick={limpiarFormulario}
-                disabled={guardando}
-              >
-                Nueva
-              </button>
-            )}
-          </div>
+      <div className="crud-layout">
+        <CrudForm
+          title={categoriaEditando ? "Editar categoría" : "Agregar categoría"}
+          editing={Boolean(categoriaEditando)}
+          onSubmit={handleSubmit}
+          onReset={limpiarFormulario}
+          saving={guardando}
+          submitLabel={categoriaEditando ? "Guardar cambios" : "Agregar categoría"}
+          newLabel="Nueva"
+        >
+          <CrudInput
+            id="nombre-categoria"
+            label="Nombre"
+            name="nombre"
+            value={formulario.nombre}
+            onChange={handleChange}
+            maxLength={100}
+            required
+          />
+          <CrudTextarea
+            id="descripcion-categoria"
+            label="Descripción"
+            name="descripcion"
+            value={formulario.descripcion}
+            onChange={handleChange}
+            rows={5}
+            placeholder="Descripción opcional de la categoría"
+          />
+        </CrudForm>
 
-          <form onSubmit={handleSubmit} className="categorias-formulario">
-            <div className="campo-categoria">
-              <label htmlFor="nombre-categoria">Nombre</label>
-              <input
-                id="nombre-categoria"
-                name="nombre"
-                type="text"
-                value={formulario.nombre}
-                onChange={handleChange}
-                maxLength={100}
-                required
-              />
-            </div>
-
-            <div className="campo-categoria">
-              <label htmlFor="descripcion-categoria">Descripción</label>
-              <textarea
-                id="descripcion-categoria"
-                name="descripcion"
-                value={formulario.descripcion}
-                onChange={handleChange}
-                rows={5}
-                placeholder="Descripción opcional de la categoría"
-              />
-            </div>
-
-            <div className="categorias-formulario-acciones">
-              {categoriaEditando && (
-                <button
-                  type="button"
-                  className="btn-cancelar-categoria"
-                  onClick={limpiarFormulario}
-                  disabled={guardando}
-                >
-                  Cancelar
-                </button>
-              )}
-              <button
-                type="submit"
-                className="btn-guardar-categoria"
-                disabled={guardando}
-              >
-                {guardando
-                  ? "Guardando..."
-                  : categoriaEditando
-                    ? "Guardar cambios"
-                    : "Agregar categoría"}
-              </button>
-            </div>
-          </form>
-        </section>
-
-        <section className="categorias-panel categorias-lista-panel">
-          <div className="categorias-panel-header">
-            <h2>Categorías registradas</h2>
-            <span className="categorias-total">{categorias.length}</span>
-          </div>
-
-          <div className="categorias-tabla-contenedor">
-            {cargando ? (
-              <p className="categorias-mensaje">Cargando categorías...</p>
-            ) : categorias.length === 0 ? (
-              <p className="categorias-mensaje">No hay categorías registradas.</p>
-            ) : (
-              <table className="categorias-tabla">
-                <thead>
-                  <tr>
-                    <th>Nombre</th>
-                    <th>Descripción</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {categorias.map((categoria) => (
-                    <tr key={categoria.id}>
-                      <td>{categoria.nombre}</td>
-                      <td>{categoria.descripcion || "—"}</td>
-                      <td>
-                        <div className="categorias-acciones-fila">
-                          <button
-                            type="button"
-                            className="btn-editar-categoria"
-                            onClick={() => abrirFormulario(categoria)}
-                            disabled={guardando || eliminandoId !== null}
-                            title="Editar categoría"
-                          >
-                            Editar
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-eliminar-categoria"
-                            onClick={() => eliminarCategoria(categoria)}
-                            disabled={guardando || eliminandoId !== null}
-                            title="Eliminar categoría"
-                          >
-                            {eliminandoId === categoria.id ? "Eliminando..." : "Eliminar"}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </section>
+        <CrudList
+          title="Categorías registradas"
+          count={categorias.length}
+          loading={cargando}
+          loadingMessage="Cargando categorías..."
+          emptyMessage="No hay categorías registradas."
+        >
+          <CrudTable
+            className="crud-table crud-table--categories"
+            columns={columnas}
+            rows={categorias}
+          />
+        </CrudList>
       </div>
     </div>
   );

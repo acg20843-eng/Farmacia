@@ -20,20 +20,20 @@ function obtenerDatosCategoria(body) {
     return { nombre, descripcion };
 }
 
-// Consultar categorías
+//Listar categorías
 router.get("/", async (req, res) => {
     try {
         const [categorias] = await db.query(
             "SELECT * FROM categorias ORDER BY nombre ASC"
         );
-
-        res.json(categorias);
+        return res.json(categorias);
     } catch (error) {
-        res.status(500).json({ mensaje: "Error al consultar categorías" });
+        console.error("Error al consultar categorías:", error.message);
+        return res.status(500).json({ mensaje: "Error al consultar categorías" });
     }
 });
 
-// Registrar categoría
+//Agregar categoría
 router.post("/", async (req, res) => {
     try {
         const datos = obtenerDatosCategoria(req.body);
@@ -47,9 +47,7 @@ router.post("/", async (req, res) => {
         );
 
         if (existente.length > 0) {
-            return res.status(409).json({
-                mensaje: "Esta categoría ya existe"
-            });
+            return res.status(409).json({ mensaje: "Esta categoría ya existe" });
         }
 
         const [resultado] = await db.query(
@@ -57,17 +55,17 @@ router.post("/", async (req, res) => {
             [datos.nombre, datos.descripcion]
         );
 
-        res.status(201).json({
+        return res.status(201).json({
             mensaje: "Categoría registrada correctamente",
             id: resultado.insertId
         });
-
     } catch (error) {
-        res.status(500).json({ mensaje: "Error al registrar categoría" });
+        console.error("Error al registrar categoría:", error.message);
+        return res.status(500).json({ mensaje: "Error al registrar categoría" });
     }
 });
 
-// Actualizar categoría
+//Actualizar categoría
 router.put("/:id", async (req, res) => {
     try {
         const { id } = req.params;
@@ -82,9 +80,7 @@ router.put("/:id", async (req, res) => {
         );
 
         if (existente.length > 0) {
-            return res.status(409).json({
-                mensaje: "Esta categoría ya existe"
-            });
+            return res.status(409).json({ mensaje: "Esta categoría ya existe" });
         }
 
         const [resultado] = await db.query(
@@ -93,19 +89,17 @@ router.put("/:id", async (req, res) => {
         );
 
         if (resultado.affectedRows === 0) {
-            return res.status(404).json({
-                mensaje: "Categoría no encontrada"
-            });
+            return res.status(404).json({ mensaje: "Categoría no encontrada" });
         }
 
-        res.json({ mensaje: "Categoría actualizada correctamente" });
-
+        return res.json({ mensaje: "Categoría actualizada correctamente" });
     } catch (error) {
-        res.status(500).json({ mensaje: "Error al actualizar categoría" });
+        console.error("Error al actualizar categoría:", error.message);
+        return res.status(500).json({ mensaje: "Error al actualizar categoría" });
     }
 });
 
-// Eliminar categoría
+//Eliminar categoría
 router.delete("/:id", async (req, res) => {
     try {
         const [resultado] = await db.query(
@@ -114,13 +108,10 @@ router.delete("/:id", async (req, res) => {
         );
 
         if (resultado.affectedRows === 0) {
-            return res.status(404).json({
-                mensaje: "Categoría no encontrada"
-            });
+            return res.status(404).json({ mensaje: "Categoría no encontrada" });
         }
 
-        res.json({ mensaje: "Categoría eliminada correctamente" });
-
+        return res.json({ mensaje: "Categoría eliminada correctamente" });
     } catch (error) {
         if (error.code === "ER_ROW_IS_REFERENCED_2") {
             return res.status(409).json({
@@ -128,7 +119,8 @@ router.delete("/:id", async (req, res) => {
             });
         }
 
-        res.status(500).json({ mensaje: "Error al eliminar categoría" });
+        console.error("Error al eliminar categoría:", error.message);
+        return res.status(500).json({ mensaje: "Error al eliminar categoría" });
     }
 });
 

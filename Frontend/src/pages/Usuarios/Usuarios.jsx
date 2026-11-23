@@ -2,10 +2,13 @@
 import { useEffect, useState } from "react";
 import PageTitle from "../../components/common/PageTitle";
 import Notification from "../../components/common/Notification";
+import CrudForm, { CrudField, CrudInput, CrudSelect } from "../../components/common/CrudForm";
+import CrudList from "../../components/common/CrudList";
+import CrudTable from "../../components/common/CrudTable";
+import useCrudForm from "../../hooks/useCrudForm";
 import { guardarUsuarioActual, obtenerUsuarioActual } from "../../utils/session";
 import { normalizarRol } from "../../utils/roles";
 import { apiRequest } from "../../services/api";
-import "./Usuarios.css";
 
 const formularioInicial = {
   nombre: "",
@@ -15,10 +18,6 @@ const formularioInicial = {
   rol: "empleado",
   activo: "1"
 };
-
-function headersAutorizacion() {
-  return { Authorization: `Bearer ${localStorage.getItem("token")}` };
-}
 
 function etiquetaRol(rol) {
   const rolNormalizado = normalizarRol(rol);
@@ -42,8 +41,7 @@ function CampoPassword({
   placeholder
 }) {
   return (
-    <div className="campo-usuario">
-      <label htmlFor={id}>{label}</label>
+    <CrudField id={id} label={label}>
       <div className="password-input-contenedor">
         <input
           id={id}
@@ -65,7 +63,7 @@ function CampoPassword({
           {visible ? "Ocultar" : "Ver"}
         </button>
       </div>
-    </div>
+    </CrudField>
   );
 }
 
@@ -81,18 +79,20 @@ export default function Usuarios() {
   const [eliminandoId, setEliminandoId] = useState(null);
   const [usuarioEditando, setUsuarioEditando] = useState(null);
   const [notificacion, setNotificacion] = useState(null);
+  const {
+    values: formulario,
+    handleChange,
+    fill: llenarFormulario,
+    reset: reiniciarFormulario
+  } = useCrudForm(formularioInicial);
   const puedeInicializarDueno =
     rolActual === "administrador" &&
     !usuarios.some((usuario) => normalizarRol(usuario.rol) === "dueno") &&
     Number(usuarioEditando?.id) === Number(usuarioActual?.id);
 
-  const [formulario, setFormulario] = useState(formularioInicial);
-
   async function cargarUsuarios() {
     try {
-      const datos = await apiRequest("/usuarios", {
-        headers: headersAutorizacion()
-      });
+      const datos = await apiRequest("/usuarios");
       setUsuarios(datos.usuarios || []);
     } catch (error) {
       setNotificacion({
@@ -108,41 +108,20 @@ export default function Usuarios() {
     void Promise.resolve().then(cargarUsuarios);
   }, []);
 
-  function handleChange(event) {
-    const { name, value } = event.target;
-
-    setFormulario((prev) => ({
-      ...prev,
-      [name]: value
-    }));
-  }
-
   function puedeEditarUsuario(usuario) {
-    return !motivoBloqueo(usuario, "editar");
+    const esPropio = Number(usuario.id) === Number(usuarioActual?.id);
+    const esCuentaDueno = normalizarRol(usuario.rol) === "dueno";
+
+    return !(esPropio && esDueno) && !(esCuentaDueno && !esDueno);
   }
 
   function puedeEliminarUsuario(usuario) {
-    return !motivoBloqueo(usuario, "eliminar");
-  }
-
-  function motivoBloqueo(usuario, accion) {
     const esPropio = Number(usuario.id) === Number(usuarioActual?.id);
-    const verbo = accion === "editar" ? "modificar" : "eliminar";
     const rol = normalizarRol(usuario.rol);
 
-    if (esPropio && (accion === "eliminar" || esDueno)) {
-      return `No puedes ${verbo} tu propia cuenta`;
-    }
-
-    if (rol === "dueno" && !esDueno) {
-      return `Solo el Dueño puede ${verbo} esta cuenta`;
-    }
-
-    if (accion === "eliminar" && rol === "administrador" && !esDueno) {
-      return "Solo el Dueño puede eliminar cuentas administradoras";
-    }
-
-    return "";
+    return !esPropio &&
+      !(rol === "dueno" && !esDueno) &&
+      !(rol === "administrador" && !esDueno);
   }
 
   function abrirFormulario(usuario = null) {
@@ -151,7 +130,7 @@ export default function Usuarios() {
     }
 
     setUsuarioEditando(usuario);
-    setFormulario(usuario ? {
+    llenarFormulario(usuario ? {
       nombre: usuario.nombre,
       correo: usuario.correo,
       password: "",
@@ -167,7 +146,7 @@ export default function Usuarios() {
     setMostrarPassword(false);
     setMostrarConfirmarPassword(false);
     setUsuarioEditando(null);
-    setFormulario(formularioInicial);
+    reiniciarFormulario();
   }
 
   async function handleSubmit(event) {
@@ -204,7 +183,6 @@ export default function Usuarios() {
         usuarioEditando ? `/usuarios/${usuarioEditando.id}` : "/usuarios",
         {
           method: usuarioEditando ? "PUT" : "POST",
-          headers: headersAutorizacion(),
           body: JSON.stringify({
             nombre: formulario.nombre.trim(),
             correo: formulario.correo.trim(),
@@ -256,8 +234,7 @@ export default function Usuarios() {
 
     try {
       await apiRequest(`/usuarios/${usuario.id}`, {
-        method: "DELETE",
-        headers: headersAutorizacion()
+        method: "DELETE"
       });
 
       await cargarUsuarios();
@@ -275,207 +252,146 @@ export default function Usuarios() {
     }
   }
 
+  const columnas = [
+    { label: "Nombre", render: (usuario) => usuario.nombre },
+    { label: "Correo electrónico", render: (usuario) => usuario.correo },
+    { label: "Rol", render: (usuario) => etiquetaRol(usuario.rol) },
+    {
+      label: "Estado",
+      render: (usuario) => {
+        const activo = Number(usuario.activo) === 1;
+        return (
+          <span className={`crud-status crud-status--${activo ? "active" : "inactive"}`}>
+            {activo ? "Activo" : "Inactivo"}
+          </span>
+        );
+      }
+    },
+    {
+      label: "Acciones",
+      render: (usuario) => {
+        return (
+          <div className="crud-row-actions">
+            <button
+              type="button"
+              className="crud-action-edit"
+              onClick={() => abrirFormulario(usuario)}
+              disabled={!puedeEditarUsuario(usuario)}
+            >
+              Editar
+            </button>
+            <button
+              type="button"
+              className="crud-action-delete"
+              onClick={() => eliminarUsuario(usuario)}
+              disabled={!puedeEliminarUsuario(usuario) || eliminandoId === usuario.id}
+            >
+              {eliminandoId === usuario.id ? "Eliminando..." : "Eliminar"}
+            </button>
+          </div>
+        );
+      }
+    }
+  ];
+
   return (
-    <div className="usuarios-page">
+    <div className="crud-page">
       <Notification notification={notificacion} onClose={() => setNotificacion(null)} />
-      <PageTitle
-        title="Usuarios"
-      />
+      <PageTitle title="Usuarios" />
 
-      <div className="usuarios-layout">
-        <section className="usuarios-panel usuarios-form-panel">
-          <div className="usuarios-panel-header">
-            <h2>{usuarioEditando ? "Editar usuario" : "Agregar usuario"}</h2>
-            {usuarioEditando && (
-              <button
-                type="button"
-                className="btn-nuevo-usuario"
-                onClick={limpiarFormulario}
-                disabled={guardando}
-              >
-                Nuevo
-              </button>
-            )}
-          </div>
+      <div className="crud-layout">
+        <CrudForm
+          title={usuarioEditando ? "Editar usuario" : "Agregar usuario"}
+          editing={Boolean(usuarioEditando)}
+          onSubmit={handleSubmit}
+          onReset={limpiarFormulario}
+          saving={guardando}
+          submitLabel={usuarioEditando ? "Guardar cambios" : "Agregar usuario"}
+        >
+          <CrudInput
+            id="nombre"
+            label="Nombre completo"
+            name="nombre"
+            type="text"
+            value={formulario.nombre}
+            onChange={handleChange}
+            maxLength={100}
+            required
+          />
+          <CrudInput
+            id="correo"
+            label="Correo electrónico"
+            name="correo"
+            type="email"
+            value={formulario.correo}
+            onChange={handleChange}
+            maxLength={150}
+            required
+          />
 
-          <form onSubmit={handleSubmit} className="usuarios-formulario">
-            <div className="campo-usuario">
-              <label htmlFor="nombre">Nombre completo</label>
-              <input
-                id="nombre"
-                name="nombre"
-                type="text"
-                value={formulario.nombre}
-                onChange={handleChange}
-                maxLength={100}
-                required
-              />
-            </div>
+          <CampoPassword
+            id="password"
+            label={usuarioEditando ? "Nueva contraseña (opcional)" : "Contraseña"}
+            value={formulario.password}
+            onChange={handleChange}
+            visible={mostrarPassword}
+            onToggle={() => setMostrarPassword((visible) => !visible)}
+            required={!usuarioEditando}
+            minLength={8}
+            placeholder={usuarioEditando ? "Deja vacío para conservarla" : ""}
+          />
 
-            <div className="campo-usuario">
-              <label htmlFor="correo">Correo electrónico</label>
-              <input
-                id="correo"
-                name="correo"
-                type="email"
-                value={formulario.correo}
-                onChange={handleChange}
-                maxLength={150}
-                required
-              />
-            </div>
+          <CampoPassword
+            id="confirmarPassword"
+            label={usuarioEditando ? "Confirmar nueva contraseña" : "Confirmar contraseña"}
+            value={formulario.confirmarPassword}
+            onChange={handleChange}
+            visible={mostrarConfirmarPassword}
+            onToggle={() => setMostrarConfirmarPassword((visible) => !visible)}
+            required={!usuarioEditando || Boolean(formulario.password)}
+          />
 
-            <CampoPassword
-              id="password"
-              label={usuarioEditando ? "Nueva contraseña (opcional)" : "Contraseña"}
-              value={formulario.password}
+          <div className="crud-fields-row">
+            <CrudSelect
+              id="rol"
+              label="Rol"
+              name="rol"
+              value={formulario.rol}
               onChange={handleChange}
-              visible={mostrarPassword}
-              onToggle={() => setMostrarPassword(!mostrarPassword)}
-              required={!usuarioEditando}
-              minLength={8}
-              placeholder={usuarioEditando ? "Deja vacío para conservarla" : ""}
-            />
-
-            <CampoPassword
-              id="confirmarPassword"
-              label={usuarioEditando ? "Confirmar nueva contraseña" : "Confirmar contraseña"}
-              value={formulario.confirmarPassword}
-              onChange={handleChange}
-              visible={mostrarConfirmarPassword}
-              onToggle={() => setMostrarConfirmarPassword(!mostrarConfirmarPassword)}
-              required={!usuarioEditando || Boolean(formulario.password)}
-            />
-
-            <div className="usuarios-formulario-fila">
-              <div className="campo-usuario">
-                <label htmlFor="rol">Rol</label>
-                <select
-                  id="rol"
-                  name="rol"
-                  value={formulario.rol}
-                  onChange={handleChange}
-                >
-                  <option value="empleado">Empleado</option>
-                  {(esDueno || puedeInicializarDueno) && (
-                    <option value="dueno">Dueño</option>
-                  )}
-                  <option value="administrador">Administrador</option>
-                </select>
-              </div>
-
-              <div className="campo-usuario">
-                <label htmlFor="activo">Estado</label>
-                <select
-                  id="activo"
-                  name="activo"
-                  value={formulario.activo}
-                  onChange={handleChange}
-                >
-                  <option value="1">Activo</option>
-                  <option value="0">Inactivo</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="usuarios-formulario-acciones">
-              {usuarioEditando && (
-                <button
-                  type="button"
-                  className="btn-cancelar-usuario"
-                  onClick={limpiarFormulario}
-                  disabled={guardando}
-                >
-                  Cancelar
-                </button>
+            >
+              <option value="empleado">Empleado</option>
+              {(esDueno || puedeInicializarDueno) && (
+                <option value="dueno">Dueño</option>
               )}
-              <button
-                type="submit"
-                className="btn-guardar-usuario"
-                disabled={guardando}
-              >
-                {guardando
-                  ? "Guardando..."
-                  : usuarioEditando
-                    ? "Guardar cambios"
-                    : "Agregar usuario"}
-              </button>
-            </div>
-          </form>
-        </section>
+              <option value="administrador">Administrador</option>
+            </CrudSelect>
 
-        <section className="usuarios-panel usuarios-lista-panel">
-          <div className="usuarios-panel-header">
-            <h2>Usuarios registrados</h2>
-            <span className="usuarios-total">{usuarios.length}</span>
+            <CrudSelect
+              id="activo"
+              label="Estado"
+              name="activo"
+              value={formulario.activo}
+              onChange={handleChange}
+            >
+              <option value="1">Activo</option>
+              <option value="0">Inactivo</option>
+            </CrudSelect>
           </div>
+        </CrudForm>
 
-          <div className="usuarios-tabla-contenedor">
-            {cargando ? (
-              <p className="usuarios-mensaje">Cargando usuarios...</p>
-            ) : usuarios.length === 0 ? (
-              <p className="usuarios-mensaje">No hay usuarios registrados.</p>
-            ) : (
-              <table className="usuarios-tabla">
-                <thead>
-                  <tr>
-                    <th>Nombre</th>
-                    <th>Correo electrónico</th>
-                    <th>Rol</th>
-                    <th>Estado</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {usuarios.map((usuario) => {
-                    const bloqueoEdicion = motivoBloqueo(usuario, "editar");
-                    const bloqueoEliminacion = motivoBloqueo(usuario, "eliminar");
-
-                    return (
-                      <tr key={usuario.id}>
-                        <td>{usuario.nombre}</td>
-                        <td>{usuario.correo}</td>
-                        <td>{etiquetaRol(usuario.rol)}</td>
-                        <td>
-                          <span className={
-                            Number(usuario.activo) === 1
-                              ? "estado-activo"
-                              : "estado-inactivo"
-                          }>
-                            {Number(usuario.activo) === 1 ? "Activo" : "Inactivo"}
-                          </span>
-                        </td>
-                        <td>
-                          <div className="usuarios-acciones-fila">
-                            <button
-                              type="button"
-                              className="btn-editar-usuario"
-                              onClick={() => abrirFormulario(usuario)}
-                              disabled={Boolean(bloqueoEdicion)}
-                              title={bloqueoEdicion || "Editar usuario"}
-                            >
-                              Editar
-                            </button>
-                            <button
-                              type="button"
-                              className="btn-eliminar-usuario"
-                              onClick={() => eliminarUsuario(usuario)}
-                              disabled={Boolean(bloqueoEliminacion) || eliminandoId === usuario.id}
-                              title={bloqueoEliminacion || "Eliminar usuario"}
-                            >
-                              {eliminandoId === usuario.id ? "Eliminando..." : "Eliminar"}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </section>
+        <CrudList
+          title="Usuarios registrados"
+          count={usuarios.length}
+          loading={cargando}
+          loadingMessage="Cargando usuarios..."
+          emptyMessage="No hay usuarios registrados."
+        >
+          <CrudTable
+            className="crud-table crud-table--users"
+            columns={columnas}
+            rows={usuarios}
+          />
+        </CrudList>
       </div>
     </div>
   );

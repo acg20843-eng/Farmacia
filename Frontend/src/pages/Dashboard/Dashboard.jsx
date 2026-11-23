@@ -1,58 +1,23 @@
 import { useEffect, useState } from "react";
 import PageTitle from "../../components/common/PageTitle";
 import { apiRequest } from "../../services/api";
+import { codigoMedicamento, diaUTC, fechaISO, formatearFecha } from "../../utils/formato";
 import "./Dashboard.css";
 
 const DIAS_PARA_CADUCAR = 30;
 const MAX_FILAS = 6;
 
-function fechaTexto(fecha) {
-  if (fecha instanceof Date) {
-    const mes = String(fecha.getMonth() + 1).padStart(2, "0");
-    const dia = String(fecha.getDate()).padStart(2, "0");
-    return `${fecha.getFullYear()}-${mes}-${dia}`;
-  }
-
-  return String(fecha || "").slice(0, 10);
-}
-
-function diaUtc(fecha) {
-  const texto = fechaTexto(fecha);
-  const partes = /^(\d{4})-(\d{2})-(\d{2})$/.exec(texto);
-  if (!partes) {
-    return null;
-  }
-
-  const [, anio, mes, dia] = partes;
-  const valor = Date.UTC(Number(anio), Number(mes) - 1, Number(dia));
-  const parsed = new Date(valor);
-  return parsed.toISOString().slice(0, 10) === texto
-    ? Math.floor(valor / 86400000)
-    : null;
-}
-
-function fechaHoyUtc() {
-  const hoy = new Date();
-  return Math.floor(Date.UTC(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()) / 86400000);
-}
-
 function mostrarFecha(fecha) {
-  const texto = fechaTexto(fecha);
-  const partes = /^(\d{4})-(\d{2})-(\d{2})$/.exec(texto);
-  return partes ? `${partes[3]}/${partes[2]}/${partes[1]}` : "Fecha no disponible";
+  return formatearFecha(fecha, "Fecha no disponible");
 }
 
 function mostrarFechaHora(fecha) {
   const texto = fecha instanceof Date
-    ? `${fechaTexto(fecha)} ${String(fecha.getHours()).padStart(2, "0")}:${String(fecha.getMinutes()).padStart(2, "0")}`
+    ? `${fechaISO(fecha)} ${String(fecha.getHours()).padStart(2, "0")}:${String(fecha.getMinutes()).padStart(2, "0")}`
     : String(fecha || "");
   const dia = mostrarFecha(texto.slice(0, 10));
   const hora = texto.slice(11, 16);
   return hora ? `${dia} · ${hora}` : dia;
-}
-
-function codigoMedicamento(id) {
-  return `MED-${String(id).padStart(3, "0")}`;
 }
 
 function calcularExistenciasBajas(medicamentos, lotes) {
@@ -110,14 +75,14 @@ export default function Dashboard() {
     void Promise.resolve().then(cargarDashboard);
   }, []);
 
-  const hoy = fechaHoyUtc();
+  const hoy = diaUTC(new Date());
   const movimientosHoy = movimientos.filter(
-    (movimiento) => fechaTexto(movimiento.fecha) === fechaTexto(new Date())
+    (movimiento) => fechaISO(movimiento.fecha) === fechaISO(new Date())
   ).length;
   const lotesPorCaducar = lotes
     .map((lote) => ({
       ...lote,
-      diaCaducidad: diaUtc(lote.fecha_caducidad)
+      diaCaducidad: diaUTC(lote.fecha_caducidad)
     }))
     .filter((lote) => lote.diaCaducidad !== null &&
       lote.diaCaducidad >= hoy &&
@@ -133,7 +98,6 @@ export default function Dashboard() {
     <div className="dashboard-page">
       <PageTitle
         title="Inicio"
-        description="Resumen del inventario y actividad reciente de la farmacia."
       />
 
       {error && <p className="dashboard-error" role="alert">{error}</p>}

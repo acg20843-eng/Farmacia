@@ -1,8 +1,6 @@
 /* Farmacia Dulce María - estilos generales */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
 :root {
-  font-family: 'Inter', Arial, sans-serif;
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
   color: #263445;
   background: #f5f8fc;
   font-synthesis: none;
@@ -206,21 +204,12 @@ a { color: inherit; text-decoration: none; }
   margin: 34px auto 60px;
 }
 
-#root:has(.categorias-page),
-#root:has(.productos-page),
-#root:has(.inventario-page),
-#root:has(.dashboard-page),
-#root:has(.movimientos-page),
-#root:has(.usuarios-page) {
+#root:has(.crud-page),
+#root:has(.dashboard-page) {
   width: min(1500px, 100%);
 }
 
-#root > main:has(.categorias-page),
-#root > main:has(.productos-page),
-#root > main:has(.inventario-page),
-#root > main:has(.dashboard-page),
-#root > main:has(.movimientos-page),
-#root > main:has(.usuarios-page) {
+#root > main:has(.dashboard-page) {
   width: 96%;
   max-width: 1460px;
 }
@@ -308,12 +297,6 @@ a { color: inherit; text-decoration: none; }
   box-shadow: 0 0 0 3px rgba(40, 120, 199, .11);
 }
 #root main input::placeholder { color: #a0adbb; }
-
-/* Buscador de productos */
-#root > main > div > div:has(> label[for="buscar-producto"]) {
-  max-width: 430px;
-  margin: 22px 0;
-}
 
 /* Estado vacío */
 #root main p:only-child {

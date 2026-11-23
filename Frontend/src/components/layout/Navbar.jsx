@@ -20,7 +20,7 @@ export default function Navbar() {
   const navigate = useNavigate();
   const [usuario, setUsuario] = useState(obtenerUsuarioActual);
   const [enLinea, setEnLinea] = useState(() => navigator.onLine);
-  const [menuAbierto, setMenuAbierto] = useState(null);
+  const [menuAbierto, setMenuAbierto] = useState(false);
   const rol = normalizarRol(usuario?.rol);
   const puedeAdministrar = ["administrador", "dueno"].includes(rol);
   const categoriasAdministracion = [
@@ -62,7 +62,7 @@ export default function Navbar() {
             key={to}
             to={to}
             end={end}
-            onClick={() => setMenuAbierto(null)}
+            onClick={() => setMenuAbierto(false)}
           >
             {label}
           </NavLink>
@@ -72,11 +72,9 @@ export default function Navbar() {
           <DropdownMenu
             label="Administración"
             items={categoriasAdministracion}
-            open={menuAbierto === "administracion"}
-            onToggle={() => setMenuAbierto((actual) => (
-              actual === "administracion" ? null : "administracion"
-            ))}
-            onClose={() => setMenuAbierto(null)}
+            open={menuAbierto}
+            onToggle={() => setMenuAbierto((abierto) => !abierto)}
+            onClose={() => setMenuAbierto(false)}
           />
         )}
       </nav>

@@ -10,7 +10,6 @@ import Categorias from "../pages/Categorias/Categorias";
 import Inventario from "../pages/Inventario/Inventario";
 import Movimientos from "../pages/Movimientos/Movimientos";
 import Usuarios from "../pages/Usuarios/Usuarios";
-//import Perfil from "../pages/Perfil/Perfil";
 
 const ROLES_ADMINISTRACION = ["administrador", "dueno"];
 
@@ -61,7 +60,6 @@ export function AppRoutes() {
             </RequiereAcceso>
           }
         />
-        {/* <Route path="/perfil" element={<Perfil />} /> */}
       </Route>
 
       <Route path="*" element={<Navigate to="/login" replace />} />
