@@ -1,15 +1,17 @@
 
+import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
-import MainLayout from "../components/layout/MainLayout";
 import { obtenerUsuarioActual, tieneSesionIniciada } from "../utils/session";
 import { normalizarRol } from "../utils/roles";
-import Login from "../pages/Login/Login";
-import Dashboard from "../pages/Dashboard/Dashboard";
-import Productos from "../pages/Productos/Productos";
-import Categorias from "../pages/Categorias/Categorias";
-import Inventario from "../pages/Inventario/Inventario";
-import Movimientos from "../pages/Movimientos/Movimientos";
-import Usuarios from "../pages/Usuarios/Usuarios";
+
+const MainLayout = lazy(() => import("../components/layout/MainLayout"));
+const Login = lazy(() => import("../pages/Login/Login"));
+const Dashboard = lazy(() => import("../pages/Dashboard/Dashboard"));
+const Productos = lazy(() => import("../pages/Productos/Productos"));
+const Categorias = lazy(() => import("../pages/Categorias/Categorias"));
+const Inventario = lazy(() => import("../pages/Inventario/Inventario"));
+const Movimientos = lazy(() => import("../pages/Movimientos/Movimientos"));
+const Usuarios = lazy(() => import("../pages/Usuarios/Usuarios"));
 
 const ROLES_ADMINISTRACION = ["administrador", "dueno"];
 
@@ -29,40 +31,42 @@ function RequiereAcceso({ children, roles }) {
 
 export function AppRoutes() {
   return (
-    <Routes>
-      <Route path="/" element={<Navigate to="/login" replace />} />
-      <Route path="/login" element={<Login />} />
+    <Suspense fallback={null}>
+      <Routes>
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/login" element={<Login />} />
 
-      <Route
-        element={
-          <RequiereAcceso>
-            <MainLayout />
-          </RequiereAcceso>
-        }
-      >
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/productos" element={<Productos />} />
         <Route
-          path="/categorias"
           element={
-            <RequiereAcceso roles={ROLES_ADMINISTRACION}>
-              <Categorias />
+            <RequiereAcceso>
+              <MainLayout />
             </RequiereAcceso>
           }
-        />
-        <Route path="/inventario" element={<Inventario />} />
-        <Route path="/movimientos" element={<Movimientos />} />
-        <Route
-          path="/usuarios"
-          element={
-            <RequiereAcceso roles={ROLES_ADMINISTRACION}>
-              <Usuarios />
-            </RequiereAcceso>
-          }
-        />
-      </Route>
+        >
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/productos" element={<Productos />} />
+          <Route
+            path="/categorias"
+            element={
+              <RequiereAcceso roles={[...ROLES_ADMINISTRACION, "empleado"]}>
+                <Categorias />
+              </RequiereAcceso>
+            }
+          />
+          <Route path="/inventario" element={<Inventario />} />
+          <Route path="/movimientos" element={<Movimientos />} />
+          <Route
+            path="/usuarios"
+            element={
+              <RequiereAcceso roles={ROLES_ADMINISTRACION}>
+                <Usuarios />
+              </RequiereAcceso>
+            }
+          />
+        </Route>
 
-      <Route path="*" element={<Navigate to="/login" replace />} />
-    </Routes>
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    </Suspense>
   );
 }

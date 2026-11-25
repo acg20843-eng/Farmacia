@@ -7,6 +7,8 @@ import CrudTable from "../../components/common/CrudTable";
 import useCrudForm from "../../hooks/useCrudForm";
 import { apiRequest } from "../../services/api";
 import { codigoMedicamento } from "../../utils/formato";
+import { obtenerUsuarioActual } from "../../utils/session";
+import { normalizarRol } from "../../utils/roles";
 
 const formularioInicial = {
   nombre: "",
@@ -36,6 +38,8 @@ const filasProducto = [
 ];
 
 export default function Productos() {
+  const rolUsuario = normalizarRol(obtenerUsuarioActual()?.rol);
+  const puedeEliminar = ["administrador", "dueno"].includes(rolUsuario);
   const [productos, setProductos] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [productoEditando, setProductoEditando] = useState(null);
@@ -213,7 +217,7 @@ export default function Productos() {
             type="button"
             className="crud-action-delete"
             onClick={() => eliminarProducto(producto)}
-            disabled={guardando || eliminandoId !== null}
+            disabled={!puedeEliminar || guardando || eliminandoId !== null}
           >
             {eliminandoId === producto.id ? "Eliminando..." : "Eliminar"}
           </button>

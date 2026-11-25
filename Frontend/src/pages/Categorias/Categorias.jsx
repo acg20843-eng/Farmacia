@@ -6,6 +6,8 @@ import CrudList from "../../components/common/CrudList";
 import CrudTable from "../../components/common/CrudTable";
 import useCrudForm from "../../hooks/useCrudForm";
 import { apiRequest } from "../../services/api";
+import { obtenerUsuarioActual } from "../../utils/session";
+import { normalizarRol } from "../../utils/roles";
 
 const formularioInicial = {
   nombre: "",
@@ -13,6 +15,8 @@ const formularioInicial = {
 };
 
 export default function Categorias() {
+  const rolUsuario = normalizarRol(obtenerUsuarioActual()?.rol);
+  const puedeAdministrar = ["administrador", "dueno"].includes(rolUsuario);
   const [categorias, setCategorias] = useState([]);
   const [categoriaEditando, setCategoriaEditando] = useState(null);
   const {
@@ -138,7 +142,7 @@ export default function Categorias() {
             type="button"
             className="crud-action-edit"
             onClick={() => abrirFormulario(categoria)}
-            disabled={guardando || eliminandoId !== null}
+            disabled={!puedeAdministrar || guardando || eliminandoId !== null}
             title="Editar categoría"
           >
             Editar
@@ -147,7 +151,7 @@ export default function Categorias() {
             type="button"
             className="crud-action-delete"
             onClick={() => eliminarCategoria(categoria)}
-            disabled={guardando || eliminandoId !== null}
+            disabled={!puedeAdministrar || guardando || eliminandoId !== null}
             title="Eliminar categoría"
           >
             {eliminandoId === categoria.id ? "Eliminando..." : "Eliminar"}
@@ -170,6 +174,7 @@ export default function Categorias() {
           onReset={limpiarFormulario}
           saving={guardando}
           submitLabel={categoriaEditando ? "Guardar cambios" : "Agregar categoría"}
+          submitDisabled={!puedeAdministrar}
           newLabel="Nueva"
         >
           <CrudInput

@@ -7,6 +7,8 @@ import CrudTable from "../../components/common/CrudTable";
 import useCrudForm from "../../hooks/useCrudForm";
 import { apiRequest } from "../../services/api";
 import { codigoMedicamento, fechaISO, formatearFecha } from "../../utils/formato";
+import { obtenerUsuarioActual } from "../../utils/session";
+import { normalizarRol } from "../../utils/roles";
 
 const formularioInicial = {
   producto_id: "",
@@ -17,6 +19,8 @@ const formularioInicial = {
 };
 
 export default function Inventario() {
+  const rolUsuario = normalizarRol(obtenerUsuarioActual()?.rol);
+  const puedeEliminar = ["administrador", "dueno"].includes(rolUsuario);
   const [lotes, setLotes] = useState([]);
   const [medicamentos, setMedicamentos] = useState([]);
   const [loteEditando, setLoteEditando] = useState(null);
@@ -181,7 +185,7 @@ export default function Inventario() {
             type="button"
             className="crud-action-delete"
             onClick={() => eliminarLote(lote)}
-            disabled={guardando || eliminandoId !== null}
+            disabled={!puedeEliminar || guardando || eliminandoId !== null}
           >
             {eliminandoId === lote.id ? "Eliminando..." : "Eliminar"}
           </button>

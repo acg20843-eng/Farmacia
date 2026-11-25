@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import DropdownMenu from "./DropdownMenu";
 import { obtenerUsuarioActual } from "../../utils/session";
 import { normalizarRol } from "../../utils/roles";
 
@@ -20,13 +19,8 @@ export default function Navbar() {
   const navigate = useNavigate();
   const [usuario, setUsuario] = useState(obtenerUsuarioActual);
   const [enLinea, setEnLinea] = useState(() => navigator.onLine);
-  const [menuAbierto, setMenuAbierto] = useState(false);
   const rol = normalizarRol(usuario?.rol);
   const puedeAdministrar = ["administrador", "dueno"].includes(rol);
-  const categoriasAdministracion = [
-    { label: "Categorías", to: "/categorias" },
-    { label: "Usuarios", to: "/usuarios" },
-  ];
 
   useEffect(() => {
     const actualizarUsuario = () => setUsuario(obtenerUsuarioActual());
@@ -52,7 +46,7 @@ export default function Navbar() {
   return (
     <header>
       <NavLink to="/dashboard" aria-label="Ir al dashboard">
-        <img className="navbar-logo" src="/img2.jpg" alt="" />
+        <img className="navbar-logo" src="/farmacia_dulce_maria_pwa_192.png" alt="" />
         <strong>Farmacia Dulce María</strong>
       </NavLink>
 
@@ -62,21 +56,13 @@ export default function Navbar() {
             key={to}
             to={to}
             end={end}
-            onClick={() => setMenuAbierto(false)}
           >
             {label}
           </NavLink>
         ))}
 
-        {puedeAdministrar && (
-          <DropdownMenu
-            label="Administración"
-            items={categoriasAdministracion}
-            open={menuAbierto}
-            onToggle={() => setMenuAbierto((abierto) => !abierto)}
-            onClose={() => setMenuAbierto(false)}
-          />
-        )}
+        <NavLink to="/categorias">Categorías</NavLink>
+        {puedeAdministrar && <NavLink to="/usuarios">Usuarios</NavLink>}
       </nav>
 
       <nav aria-label="Cuenta">

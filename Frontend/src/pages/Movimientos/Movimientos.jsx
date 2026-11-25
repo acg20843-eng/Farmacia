@@ -42,7 +42,6 @@ export default function Movimientos() {
     reset: reiniciarFormulario
   } = useCrudForm(formularioInicial);
   const [busqueda, setBusqueda] = useState("");
-  const [filtroTipo, setFiltroTipo] = useState("");
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [eliminandoId, setEliminandoId] = useState(null);
@@ -199,7 +198,6 @@ export default function Movimientos() {
     ));
   const consulta = busqueda.trim().toLocaleLowerCase();
   const movimientosFiltrados = movimientos.filter((movimiento) => (
-    (!filtroTipo || movimiento.tipo === filtroTipo) &&
     [
       movimiento.medicamento_nombre,
       movimiento.numero_lote,
@@ -232,7 +230,7 @@ export default function Movimientos() {
     { label: "Cantidad", render: (movimiento) => movimiento.cantidad },
     { label: "Usuario", render: (movimiento) => movimiento.usuario_nombre },
     { label: "Motivo", render: (movimiento) => movimiento.motivo || "—" },
-    ...(puedeAdministrar ? [{
+    {
       label: "Acciones",
       render: (movimiento) => (
         <div className="crud-row-actions">
@@ -240,7 +238,7 @@ export default function Movimientos() {
             type="button"
             className="crud-action-edit"
             onClick={() => abrirEdicion(movimiento)}
-            disabled={guardando || eliminandoId !== null}
+            disabled={!puedeAdministrar || guardando || eliminandoId !== null}
           >
             Editar
           </button>
@@ -248,13 +246,13 @@ export default function Movimientos() {
             type="button"
             className="crud-action-delete"
             onClick={() => eliminarMovimiento(movimiento)}
-            disabled={guardando || eliminandoId !== null}
+            disabled={!puedeAdministrar || guardando || eliminandoId !== null}
           >
             {eliminandoId === movimiento.id ? "Eliminando..." : "Eliminar"}
           </button>
         </div>
       )
-    }] : [])
+    }
   ];
 
   return (
@@ -333,33 +331,20 @@ export default function Movimientos() {
           loading={cargando}
           loadingMessage="Cargando movimientos..."
           emptyMessage={
-            busqueda || filtroTipo
+            busqueda
               ? "No se encontraron movimientos."
               : "Aún no hay movimientos registrados."
           }
           toolbar={
-            <div className="crud-filter-row">
-              <div className="crud-field">
-                <label htmlFor="buscar-movimiento">Buscar</label>
-                <input
-                  id="buscar-movimiento"
-                  type="search"
-                  value={busqueda}
-                  onChange={(event) => setBusqueda(event.target.value)}
-                  placeholder="Medicamento, lote, usuario o motivo"
-                />
-              </div>
-              <div className="crud-field">
-                <label htmlFor="filtro-tipo-movimiento">Tipo</label>
-                <select
-                  id="filtro-tipo-movimiento"
-                  value={filtroTipo}
-                  onChange={(event) => setFiltroTipo(event.target.value)}
-                >
-                  <option value="">Todos</option>
-                  <option value="SALIDA">Salidas</option>
-                </select>
-              </div>
+            <div className="crud-field crud-search">
+              <label htmlFor="buscar-movimiento">Buscar</label>
+              <input
+                id="buscar-movimiento"
+                type="search"
+                value={busqueda}
+                onChange={(event) => setBusqueda(event.target.value)}
+                placeholder="Medicamento, lote, usuario o motivo"
+              />
             </div>
           }
         >

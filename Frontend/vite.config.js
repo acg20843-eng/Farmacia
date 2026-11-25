@@ -53,13 +53,13 @@ export default defineConfig({
 
         icons: [
           {
-            src: '/pwa-192.png',
+            src: '/farmacia_dulce_maria_pwa_192.png',
             sizes: '192x192',
             type: 'image/png',
             purpose: 'any'
           },
           {
-            src: '/pwa-512.png',
+            src: '/farmacia_dulce_maria_cuadrada_512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any'
