@@ -243,12 +243,6 @@ router.put("/:id", async (req, res) => {
 
         const rolUsuario = normalizarRol(usuarios[0].rol);
 
-        if (req.usuario.rol === "dueno" && Number(req.usuario.id) === id) {
-            return res.status(403).json({
-                mensaje: "No puedes modificar tu propia cuenta"
-            });
-        }
-
         if (rolUsuario === "dueno" && req.usuario.rol !== "dueno") {
             return res.status(403).json({
                 mensaje: "Solo el Dueño puede modificar su cuenta"

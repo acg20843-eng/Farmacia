@@ -109,10 +109,9 @@ export default function Usuarios() {
   }, []);
 
   function puedeEditarUsuario(usuario) {
-    const esPropio = Number(usuario.id) === Number(usuarioActual?.id);
     const esCuentaDueno = normalizarRol(usuario.rol) === "dueno";
 
-    return !(esPropio && esDueno) && !(esCuentaDueno && !esDueno);
+    return !(esCuentaDueno && !esDueno);
   }
 
   function puedeEliminarUsuario(usuario) {
@@ -358,6 +357,10 @@ export default function Usuarios() {
               name="rol"
               value={formulario.rol}
               onChange={handleChange}
+              disabled={
+                esDueno &&
+                Number(usuarioEditando?.id) === Number(usuarioActual?.id)
+              }
             >
               <option value="empleado">Empleado</option>
               {(esDueno || puedeInicializarDueno) && (
