@@ -453,6 +453,14 @@
 }
 
 @media (max-width: 760px) {
+  .crud-table--products {
+    min-width: 600px;
+  }
+
+  .crud-table--lots {
+    min-width: 560px;
+  }
+
   .crud-table--products th:nth-child(3),
   .crud-table--products td:nth-child(3),
   .crud-table--products th:nth-child(5),
@@ -494,6 +502,14 @@
   .crud-table--products th:nth-child(6),
   .crud-table--products td:nth-child(6) {
     display: none;
+  }
+
+  .crud-table--products {
+    min-width: 500px;
+  }
+
+  .crud-table--lots {
+    min-width: 500px;
   }
 
   .crud-table--products th,
