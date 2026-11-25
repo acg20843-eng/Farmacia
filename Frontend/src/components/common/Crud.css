@@ -520,12 +520,6 @@
     font-size: 10px;
   }
 
-  .crud-table--products .crud-row-actions,
-  .crud-table--lots .crud-row-actions {
-    flex-direction: column;
-    gap: 4px;
-  }
-
   .crud-filter-row {
     grid-template-columns: minmax(0, 1fr);
   }
