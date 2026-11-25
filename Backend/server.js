@@ -4,6 +4,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const db = require("./config/database");
+
 const categoriasRoutes = require("./routes/categorias");
 const productosRoutes = require("./routes/productos");
 const lotesRoutes = require("./routes/lotes");
@@ -13,10 +14,9 @@ const usuariosRoutes = require("./routes/usuarios");
 
 const app = express();
 
-
-
 app.use(cors());
 app.use(express.json());
+
 app.use("/api/categorias", categoriasRoutes);
 app.use("/api/productos", productosRoutes);
 app.use("/api/lotes", lotesRoutes);
@@ -27,6 +27,11 @@ app.use("/api/usuarios", usuariosRoutes);
 // Ruta principal
 app.get("/", (req, res) => {
     res.send("Servidor de Farmacia Dulce María funcionando");
+});
+
+// Comprobar estado del servidor
+app.get("/health", (req, res) => {
+    res.json({ estado: "activo" });
 });
 
 // Comprobar conexión con MariaDB
@@ -53,17 +58,17 @@ app.get("/api/health/db", async (req, res) => {
 });
 
 // Iniciar servidor
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 async function iniciarServidor() {
     try {
-        const [rows] = await db.query("SELECT 1");
+        await db.query("SELECT 1");
 
         console.log("Conexión con MariaDB exitosa");
         console.log(`Base de datos: ${process.env.DB_NAME}`);
 
-        app.listen(PORT, () => {
-            console.log(`Servidor funcionando en http://localhost:${PORT}`);
+        app.listen(PORT, "0.0.0.0", () => {
+            console.log(`Servidor funcionando en puerto ${PORT}`);
         });
 
     } catch (error) {
