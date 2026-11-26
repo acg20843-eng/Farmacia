@@ -27,7 +27,7 @@ async function precargarDatosOffline(usuario) {
     try {
       await apiRequest(ruta);
     } catch (error) {
-      console.error(`No se pudo preparar la copia offline de ${ruta}:`, error);
+      //console.error(`No se pudo preparar la copia offline de ${ruta}:`, error);
     }
   }));
 }
@@ -62,7 +62,7 @@ export default function Login() {
             datos.usuario
           );
         } catch (error) {
-          console.error("No se pudo guardar la autorización offline:", error);
+          //console.error("No se pudo guardar la autorización offline:", error);
         }
 
         localStorage.setItem("token", datos.token);
@@ -90,9 +90,9 @@ export default function Login() {
       if (!resultado.ok) {
         const mensajes = {
           "no-autorizado":
-            "Este usuario todavía no ha iniciado sesión con Internet en este dispositivo.",
-          "vencido":
-            "La autorización offline ha vencido. Conéctate a Internet para iniciar sesión nuevamente.",
+            "Este usuario aún no ha iniciado sesión con Internet en este dispositivo.",
+        //  "vencido":
+        //    "La autorización offline ha vencido. Conéctate a Internet para iniciar sesión nuevamente.",
           "credenciales-invalidas":
             "El correo o la contraseña son incorrectos."
         };
