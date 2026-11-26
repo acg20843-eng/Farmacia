@@ -2,7 +2,7 @@
 const DB_NAME = "farmacia_dm_offline";
 const DB_VERSION = 2;
 
-// Almacenes compartidos para los diferentes módulos.
+// Almacenes compartidos para todos los módulos.
 const ALMACENES = [
   "productos",
   "categorias",
@@ -140,13 +140,8 @@ export async function obtenerTodos(nombre) {
     return new Promise((resolve, reject) => {
       const solicitud = almacen.getAll();
 
-      solicitud.onsuccess = () => {
-        resolve(solicitud.result);
-      };
-
-      solicitud.onerror = () => {
-        reject(solicitud.error);
-      };
+      solicitud.onsuccess = () => resolve(solicitud.result);
+      solicitud.onerror = () => reject(solicitud.error);
     });
   });
 }
