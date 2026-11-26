@@ -65,12 +65,21 @@ export default function Movimientos() {
   }
 
   useEffect(() => {
-    void Promise.resolve().then(cargarDatos).catch((error) => {
+    const manejarErrorCarga = (error) => {
       setNotificacion({
         type: "error",
         message: error.message || "Error al cargar los movimientos."
       });
-    });
+    };
+    const actualizarTrasSincronizar = () => {
+      void cargarDatos().catch(manejarErrorCarga);
+    };
+    window.addEventListener("offline-sync-complete", actualizarTrasSincronizar);
+    void Promise.resolve().then(cargarDatos).catch(manejarErrorCarga);
+
+    return () => {
+      window.removeEventListener("offline-sync-complete", actualizarTrasSincronizar);
+    };
   }, []);
 
   function handleChange(event) {

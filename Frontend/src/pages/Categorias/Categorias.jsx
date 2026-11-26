@@ -48,7 +48,15 @@ export default function Categorias() {
   }
 
   useEffect(() => {
+    const actualizarTrasSincronizar = () => {
+      void cargarCategorias();
+    };
+    window.addEventListener("offline-sync-complete", actualizarTrasSincronizar);
     void Promise.resolve().then(cargarCategorias);
+
+    return () => {
+      window.removeEventListener("offline-sync-complete", actualizarTrasSincronizar);
+    };
   }, []);
 
   function abrirFormulario(categoria = null) {

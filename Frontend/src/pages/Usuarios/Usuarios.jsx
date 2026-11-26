@@ -105,7 +105,15 @@ export default function Usuarios() {
   }
 
   useEffect(() => {
+    const actualizarTrasSincronizar = () => {
+      void cargarUsuarios();
+    };
+    window.addEventListener("offline-sync-complete", actualizarTrasSincronizar);
     void Promise.resolve().then(cargarUsuarios);
+
+    return () => {
+      window.removeEventListener("offline-sync-complete", actualizarTrasSincronizar);
+    };
   }, []);
 
   function puedeEditarUsuario(usuario) {

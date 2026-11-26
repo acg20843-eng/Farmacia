@@ -1,12 +1,36 @@
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiRequest } from "../../services/api";
+import {
+  apiRequest,
+  sincronizarCambiosPendientes
+} from "../../services/api";
 import {
   guardarCredencialOffline,
   validarCredencialOffline
 } from "../../utils/offlineAuth";
 import { guardarUsuarioActual } from "../../utils/session";
+
+async function precargarDatosOffline(usuario) {
+  const rutas = [
+    "/productos",
+    "/categorias",
+    "/lotes",
+    "/movimientos"
+  ];
+
+  if (["administrador", "dueno"].includes(usuario.rol)) {
+    rutas.push("/usuarios");
+  }
+
+  await Promise.all(rutas.map(async (ruta) => {
+    try {
+      await apiRequest(ruta);
+    } catch (error) {
+      console.error(`No se pudo preparar la copia offline de ${ruta}:`, error);
+    }
+  }));
+}
 
 export default function Login() {
   const navigate = useNavigate();
@@ -44,6 +68,8 @@ export default function Login() {
         localStorage.setItem("token", datos.token);
         localStorage.removeItem("modoOffline");
         guardarUsuarioActual(datos.usuario);
+        await sincronizarCambiosPendientes();
+        await precargarDatosOffline(datos.usuario);
 
         navigate("/dashboard");
         return;

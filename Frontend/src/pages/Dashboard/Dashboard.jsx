@@ -72,7 +72,15 @@ export default function Dashboard() {
   }
 
   useEffect(() => {
+    const actualizarTrasSincronizar = () => {
+      void cargarDashboard();
+    };
+    window.addEventListener("offline-sync-complete", actualizarTrasSincronizar);
     void Promise.resolve().then(cargarDashboard);
+
+    return () => {
+      window.removeEventListener("offline-sync-complete", actualizarTrasSincronizar);
+    };
   }, []);
 
   const hoy = diaUTC(new Date());

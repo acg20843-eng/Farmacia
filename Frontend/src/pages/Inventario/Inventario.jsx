@@ -60,7 +60,15 @@ export default function Inventario() {
   }
 
   useEffect(() => {
+    const actualizarTrasSincronizar = () => {
+      void cargarDatos();
+    };
+    window.addEventListener("offline-sync-complete", actualizarTrasSincronizar);
     void Promise.resolve().then(cargarDatos);
+
+    return () => {
+      window.removeEventListener("offline-sync-complete", actualizarTrasSincronizar);
+    };
   }, []);
 
   function abrirFormulario(lote = null) {

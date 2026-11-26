@@ -123,14 +123,16 @@ export async function guardarCredencialOffline(
   const verificador = await generarVerificador(password, salt);
 
   // Evitar guardar contraseñas o tokens dentro del objeto usuario
-  const {
-    password: _password,
-    contrasena: _contrasena,
-    token: _token,
-    accessToken: _accessToken,
-    refreshToken: _refreshToken,
-    ...usuarioSeguro
-  } = usuario;
+  const usuarioSeguro = { ...usuario };
+  for (const campo of [
+    "password",
+    "contrasena",
+    "token",
+    "accessToken",
+    "refreshToken"
+  ]) {
+    delete usuarioSeguro[campo];
+  }
 
   const ahora = Date.now();
 

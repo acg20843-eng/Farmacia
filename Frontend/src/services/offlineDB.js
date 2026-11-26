@@ -1,6 +1,6 @@
 
 const DB_NAME = "farmacia_dm_offline";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 // Almacenes compartidos para todos los módulos.
 const ALMACENES = [
@@ -10,7 +10,8 @@ const ALMACENES = [
   "movimientos",
   "usuarios",
   "operacionesPendientes",
-  "estadoCache"
+  "estadoCache",
+  "clavesSeguridad"
 ];
 
 let conexionDB = null;
@@ -206,5 +207,267 @@ export async function reemplazarTodos(nombre, registros) {
     registros.forEach((registro) => {
       almacen.put(registro);
     });
+  });
+}
+
+export async function guardarCambioPendiente({
+  almacenNombre,
+  metodo,
+  ruta,
+  cuerpo,
+  registro,
+  id,
+  propietarioId,
+  actualizaciones = []
+}) {
+  validarAlmacen(almacenNombre);
+  const db = await abrirDB();
+
+  return new Promise((resolve, reject) => {
+    const transaccion = db.transaction(
+      [...new Set([
+        almacenNombre,
+        "operacionesPendientes",
+        ...actualizaciones.map(({ almacenNombre: nombre }) => nombre)
+      ])],
+      "readwrite"
+    );
+    const almacen = transaccion.objectStore(almacenNombre);
+    const pendientes = transaccion.objectStore("operacionesPendientes");
+    const rutaRaiz = ruta.replace(/\/-?\d+$/, "");
+    for (const actualizacion of actualizaciones) {
+      transaccion.objectStore(actualizacion.almacenNombre).put(
+        actualizacion.registro
+      );
+    }
+    const cambio = {
+      metodo,
+      ruta,
+      cuerpo,
+      propietarioId,
+      creado: new Date().toISOString()
+    };
+    let idRegistro = id;
+
+    if (metodo === "POST") {
+      const solicitud = pendientes.add(cambio);
+      solicitud.onsuccess = () => {
+        idRegistro = -Number(solicitud.result);
+        pendientes.put({
+          ...cambio,
+          localId: solicitud.result,
+          idRegistro
+        });
+        almacen.put({ ...registro, id: idRegistro });
+      };
+      solicitud.onerror = () => reject(solicitud.error);
+    } else {
+      const solicitud = pendientes.getAll();
+      solicitud.onsuccess = () => {
+        const creacionPendiente = solicitud.result.find((pendiente) =>
+          pendiente.metodo === "POST" &&
+          Number(pendiente.idRegistro) === Number(idRegistro) &&
+          pendiente.ruta === rutaRaiz
+        );
+        const operacionPendiente = solicitud.result.find((pendiente) =>
+          pendiente.ruta === ruta &&
+          ["PUT", "DELETE"].includes(pendiente.metodo)
+        );
+
+        if (creacionPendiente) {
+          if (Number(creacionPendiente.propietarioId) !== Number(propietarioId)) {
+            transaccion.abort();
+            reject(new Error("Solo el usuario que creó el registro puede modificarlo offline."));
+            return;
+          }
+
+          if (metodo === "PUT") {
+            pendientes.put({
+              ...creacionPendiente,
+              cuerpo: { ...creacionPendiente.cuerpo, ...cuerpo }
+            });
+            almacen.put(registro);
+          } else if (metodo === "DELETE") {
+            pendientes.delete(creacionPendiente.localId);
+            almacen.delete(idRegistro);
+          } else {
+            transaccion.abort();
+            reject(new Error("Esta operación no está disponible offline."));
+          }
+          return;
+        }
+
+        if (operacionPendiente) {
+          if (Number(operacionPendiente.propietarioId) !== Number(propietarioId)) {
+            transaccion.abort();
+            reject(new Error("Solo el usuario que guardó el cambio puede modificarlo offline."));
+            return;
+          }
+
+          if (metodo === "PUT") {
+            pendientes.put({
+              ...operacionPendiente,
+              cuerpo: { ...operacionPendiente.cuerpo, ...cuerpo }
+            });
+            almacen.put(registro);
+          } else if (metodo === "DELETE") {
+            pendientes.put({
+              ...operacionPendiente,
+              metodo: "DELETE",
+              cuerpo: undefined
+            });
+            almacen.delete(idRegistro);
+          } else {
+            transaccion.abort();
+            reject(new Error("Esta operación no está disponible offline."));
+          }
+          return;
+        }
+
+        const solicitudPendiente = pendientes.add({ ...cambio, idRegistro });
+        solicitudPendiente.onerror = () => reject(solicitudPendiente.error);
+
+        if (metodo === "DELETE") {
+          almacen.delete(idRegistro);
+        } else {
+          almacen.put(registro);
+        }
+      };
+      solicitud.onerror = () => reject(solicitud.error);
+    }
+
+    transaccion.oncomplete = () => resolve(idRegistro);
+    transaccion.onerror = () => reject(
+      transaccion.error || new Error("No se pudo guardar el cambio offline.")
+    );
+    transaccion.onabort = () => reject(
+      transaccion.error || new Error("No se pudo guardar el cambio offline.")
+    );
+  });
+}
+
+export async function obtenerCambiosPendientes() {
+  return obtenerTodos("operacionesPendientes");
+}
+
+export async function tieneOperacionPendiente(ruta) {
+  const pendientes = await obtenerCambiosPendientes();
+  return pendientes.some((pendiente) => pendiente.ruta === ruta);
+}
+
+export async function confirmarCambioPendiente(
+  localId,
+  idLocalRegistro,
+  idServidor,
+  tipoEntidad
+) {
+  const db = await abrirDB();
+  const nombres = ALMACENES.filter((nombre) => nombre !== "clavesSeguridad");
+
+  return new Promise((resolve, reject) => {
+    const transaccion = db.transaction(nombres, "readwrite");
+    const pendientes = transaccion.objectStore("operacionesPendientes");
+
+    if (idLocalRegistro == null || idServidor == null) {
+      pendientes.delete(localId);
+      transaccion.oncomplete = resolve;
+      transaccion.onerror = () => reject(transaccion.error);
+      transaccion.onabort = () => reject(transaccion.error);
+      return;
+    }
+
+    const almacenesConReferencias = {
+      categorias: [["productos", "categoria_id"]],
+      productos: [["lotes", "producto_id"]],
+      lotes: [["movimientos", "lote_id"]],
+      usuarios: [["movimientos", "usuario_id"]]
+    };
+    const nombresLectura = [
+      ...new Set([
+        tipoEntidad,
+        ...(almacenesConReferencias[tipoEntidad] || []).map(([nombre]) => nombre),
+        "operacionesPendientes"
+      ])
+    ];
+    let lecturasRestantes = nombresLectura.length;
+    const resultados = {};
+
+    for (const nombre of nombresLectura) {
+      const solicitud = transaccion.objectStore(nombre).getAll();
+      solicitud.onsuccess = () => {
+        resultados[nombre] = solicitud.result;
+        lecturasRestantes -= 1;
+
+        if (lecturasRestantes !== 0) {
+          return;
+        }
+
+        const registroLocal = resultados[tipoEntidad].find(
+          (registro) => Number(registro.id) === Number(idLocalRegistro)
+        );
+        if (registroLocal) {
+          transaccion.objectStore(tipoEntidad).put({
+            ...registroLocal,
+            id: Number(idServidor)
+          });
+        }
+
+        for (const [nombreReferencia, campo] of (
+          almacenesConReferencias[tipoEntidad] || []
+        )) {
+          for (const registro of resultados[nombreReferencia]) {
+            if (Number(registro[campo]) === Number(idLocalRegistro)) {
+              transaccion.objectStore(nombreReferencia).put({
+                ...registro,
+                [campo]: Number(idServidor)
+              });
+            }
+          }
+        }
+
+        for (const pendiente of resultados.operacionesPendientes) {
+          if (pendiente.localId === localId) {
+            continue;
+          }
+
+          const ruta = pendiente.ruta.replace(
+            new RegExp(`/${idLocalRegistro}(?=$|\\?)`),
+            `/${idServidor}`
+          );
+          const cuerpo = pendiente.cuerpo && { ...pendiente.cuerpo };
+          if (cuerpo) {
+            for (const campo of [
+              "categoria_id",
+              "producto_id",
+              "lote_id",
+              "usuario_id"
+            ]) {
+              if (Number(cuerpo[campo]) === Number(idLocalRegistro)) {
+                cuerpo[campo] = Number(idServidor);
+              }
+            }
+          }
+
+          pendientes.put({
+            ...pendiente,
+            ruta,
+            cuerpo,
+            idRegistro: Number(pendiente.idRegistro) === Number(idLocalRegistro)
+              ? Number(idServidor)
+              : pendiente.idRegistro
+          });
+        }
+
+        pendientes.delete(localId);
+      };
+      solicitud.onerror = () => {
+        transaccion.abort();
+        reject(solicitud.error);
+      };
+    }
+
+    transaccion.oncomplete = resolve;
+    transaccion.onerror = () => reject(transaccion.error);
+    transaccion.onabort = () => reject(transaccion.error);
   });
 }
