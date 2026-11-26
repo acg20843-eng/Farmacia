@@ -1,6 +1,6 @@
 
 const DB_NAME = "farmacia_dm_offline";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 // Almacenes compartidos para los diferentes módulos.
 const ALMACENES = [
@@ -15,6 +15,7 @@ const ALMACENES = [
 
 let conexionDB = null;
 
+// Abrir o crear la base de datos local.
 function abrirDB() {
   if (conexionDB) {
     return conexionDB;
@@ -22,6 +23,7 @@ function abrirDB() {
 
   conexionDB = new Promise((resolve, reject) => {
     if (!("indexedDB" in window)) {
+      conexionDB = null;
       reject(new Error("Este navegador no permite utilizar IndexedDB."));
       return;
     }
@@ -65,19 +67,23 @@ function abrirDB() {
 
     solicitud.onblocked = () => {
       conexionDB = null;
-      reject(new Error("La base de datos está bloqueada por otra conexión."));
+      reject(
+        new Error("La base de datos está bloqueada por otra conexión.")
+      );
     };
   });
 
   return conexionDB;
 }
 
+// Comprobar que el almacén exista.
 function validarAlmacen(nombre) {
   if (!ALMACENES.includes(nombre)) {
     throw new Error(`El almacén "${nombre}" no existe.`);
   }
 }
 
+// Ejecutar operaciones dentro de una transacción.
 async function ejecutarTransaccion(nombre, modo, operacion) {
   validarAlmacen(nombre);
 
@@ -94,7 +100,12 @@ async function ejecutarTransaccion(nombre, modo, operacion) {
       resultado = operacion(almacen);
     } catch (error) {
       errorOperacion = error;
-      transaccion.abort();
+
+      try {
+        transaccion.abort();
+      } catch {
+        reject(error);
+      }
     }
 
     transaccion.oncomplete = () => {
@@ -123,17 +134,21 @@ async function ejecutarTransaccion(nombre, modo, operacion) {
   });
 }
 
-
 // Consultar todos los registros de un módulo.
 export async function obtenerTodos(nombre) {
   return ejecutarTransaccion(nombre, "readonly", (almacen) => {
     return new Promise((resolve, reject) => {
       const solicitud = almacen.getAll();
 
-      solicitud.onsuccess = () => resolve(solicitud.result);
-      solicitud.onerror = () => reject(solicitud.error);
+      solicitud.onsuccess = () => {
+        resolve(solicitud.result);
+      };
+
+      solicitud.onerror = () => {
+        reject(solicitud.error);
+      };
     });
-  }).then((resultado) => resultado);
+  });
 }
 
 // Guardar o actualizar un registro.
@@ -185,13 +200,15 @@ export async function reemplazarTodos(nombre, registros) {
   }
 
   return ejecutarTransaccion(nombre, "readwrite", (almacen) => {
-    almacen.clear();
-
     registros.forEach((registro) => {
       if (registro.id === undefined || registro.id === null) {
         throw new Error("Un registro no tiene identificador.");
       }
+    });
 
+    almacen.clear();
+
+    registros.forEach((registro) => {
       almacen.put(registro);
     });
   });
