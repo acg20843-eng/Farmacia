@@ -20,6 +20,12 @@ export default defineConfig({
       workbox: {
         cleanupOutdatedCaches: true,
 
+        // Permitir la navegación offline en las rutas de la aplicación
+        navigateFallbackAllowlist: [
+          /^\/$/,
+          /^\/(login|dashboard|productos|categorias|inventario|movimientos|usuarios)\/?$/
+        ],
+
         globPatterns: [
           '**/*.{js,css,html,ico}'
         ],
@@ -69,6 +75,7 @@ export default defineConfig({
     })
   ]
 })
+
 
 
 /*import react from '@vitejs/plugin-react'

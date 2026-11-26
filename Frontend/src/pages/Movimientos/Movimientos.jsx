@@ -320,7 +320,7 @@ export default function Movimientos() {
 
           {!cargando && lotes.length === 0 && (
             <p className="crud-help">
-              Registra un lote con existencias en Inventario antes de registrar una salida.
+          
             </p>
           )}
         </CrudForm>
