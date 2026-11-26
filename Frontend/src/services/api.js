@@ -1,12 +1,13 @@
 
 import {
   obtenerTodos,
-  reemplazarTodos
+  reemplazarTodos,
+  guardarUno,
+  obtenerTodos as obtenerRegistros
 } from "./offlineDB";
 
 const API_URL = `${import.meta.env.VITE_API_URL || "http://localhost:3000"}/api`;
 
-// Relación entre las rutas del backend y los almacenes locales.
 const ALMACENES = {
   "/productos": "productos",
   "/categorias": "categorias"
@@ -25,52 +26,57 @@ export async function apiRequest(path, options = {}) {
     ...(token ? { Authorization: `Bearer ${token}` } : {})
   };
 
-  let response;
-
   try {
-    response = await fetch(`${API_URL}${path}`, {
+    const response = await fetch(`${API_URL}${path}`, {
       ...options,
       headers
     });
-  } catch (error) {
-    // Si falla la conexión, intentar recuperar los datos locales.
-    if (metodo === "GET" && almacen) {
-      const datosLocales = await obtenerTodos(almacen);
 
-      if (datosLocales.length > 0) {
-        return datosLocales;
+    let data;
+
+    try {
+      data = await response.json();
+    } catch {
+      if (response.ok) {
+        throw new Error("El servidor devolvió una respuesta inválida.");
+      }
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        data?.mensaje ||
+        data?.message ||
+        "Ocurrió un error al comunicarse con el servidor."
+      );
+    }
+
+    if (metodo === "GET" && almacen && Array.isArray(data)) {
+      try {
+        await reemplazarTodos(almacen, data);
+        await guardarUno("estadoCache", {
+          id: almacen,
+          actualizado: new Date().toISOString()
+        });
+      } catch (error) {
+        console.error("Error al guardar los datos localmente:", error);
+      }
+    }
+
+    return data;
+
+  } catch (error) {
+    if (metodo === "GET" && almacen) {
+      const cache = await obtenerTodos("estadoCache");
+
+      const existeCache = cache.some(
+        (registro) => registro.id === almacen
+      );
+
+      if (existeCache) {
+        return obtenerRegistros(almacen);
       }
     }
 
     throw error;
   }
-
-  let data;
-
-  try {
-    data = await response.json();
-  } catch {
-    if (response.ok) {
-      throw new Error("El servidor devolvió una respuesta inválida.");
-    }
-  }
-
-  if (!response.ok) {
-    throw new Error(
-      data?.mensaje ||
-      data?.message ||
-      "Ocurrió un error al comunicarse con el servidor."
-    );
-  }
-
-  // Guardar automáticamente las consultas exitosas.
-  if (metodo === "GET" && almacen && Array.isArray(data)) {
-    try {
-      await reemplazarTodos(almacen, data);
-    } catch (error) {
-      console.error("Error al guardar los datos localmente:", error);
-    }
-  }
-
-  return data;
 }

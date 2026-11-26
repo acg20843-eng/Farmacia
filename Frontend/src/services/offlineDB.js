@@ -9,7 +9,8 @@ const ALMACENES = [
   "lotes",
   "movimientos",
   "usuarios",
-  "operacionesPendientes"
+  "operacionesPendientes",
+  "estadoCache"
 ];
 
 let conexionDB = null;
