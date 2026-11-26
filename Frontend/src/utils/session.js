@@ -1,3 +1,4 @@
+
 export function obtenerUsuarioActual() {
   try {
     const usuario = JSON.parse(localStorage.getItem("usuario") || "null");
@@ -9,13 +10,14 @@ export function obtenerUsuarioActual() {
 
 export function tieneSesionIniciada() {
   const token = localStorage.getItem("token");
+  const modoOffline = localStorage.getItem("modoOffline") === "true";
   const usuario = obtenerUsuarioActual();
 
   return Boolean(
-    token &&
     usuario &&
     Number.isSafeInteger(Number(usuario.id)) &&
-    Number(usuario.id) > 0
+    Number(usuario.id) > 0 &&
+    (token || modoOffline)
   );
 }
 

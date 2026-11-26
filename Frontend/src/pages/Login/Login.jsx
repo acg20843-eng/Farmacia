@@ -2,6 +2,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiRequest } from "../../services/api";
+import {
+  guardarCredencialOffline,
+  validarCredencialOffline
+} from "../../utils/offlineAuth";
+import { guardarUsuarioActual } from "../../utils/session";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -18,19 +23,69 @@ export default function Login() {
     setCargando(true);
 
     try {
-      const datos = await apiRequest("/auth/login", {
-        method: "POST",
-        body: JSON.stringify({ correo, password })
-      });
+      try {
+        // Intentar iniciar sesión con el servidor
+        const datos = await apiRequest("/auth/login", {
+          method: "POST",
+          body: JSON.stringify({ correo, password })
+        });
 
-      localStorage.setItem("token", datos.token);
-      localStorage.setItem("usuario", JSON.stringify(datos.usuario));
+        // Guardar autorización local para futuros accesos offline
+        try {
+          await guardarCredencialOffline(
+            correo,
+            password,
+            datos.usuario
+          );
+        } catch (error) {
+          console.error("No se pudo guardar la autorización offline:", error);
+        }
+
+        localStorage.setItem("token", datos.token);
+        localStorage.removeItem("modoOffline");
+        guardarUsuarioActual(datos.usuario);
+
+        navigate("/dashboard");
+        return;
+
+      } catch (errorServidor) {
+        // Solo intentar acceso offline si falla la conexión
+        if (!(errorServidor instanceof TypeError)) {
+          throw errorServidor;
+        }
+      }
+
+      // Intentar iniciar sesión sin Internet
+      const resultado = await validarCredencialOffline(
+        correo,
+        password
+      );
+
+      if (!resultado.ok) {
+        const mensajes = {
+          "no-autorizado":
+            "Este usuario todavía no ha iniciado sesión con Internet en este dispositivo.",
+          "vencido":
+            "La autorización offline ha vencido. Conéctate a Internet para iniciar sesión nuevamente.",
+          "credenciales-invalidas":
+            "El correo o la contraseña son incorrectos."
+        };
+
+        throw new Error(
+          mensajes[resultado.motivo] || "No se pudo validar el acceso offline."
+        );
+      }
+
+      // Establecer sesión local
+      localStorage.removeItem("token");
+      localStorage.setItem("modoOffline", "true");
+      guardarUsuarioActual(resultado.usuario);
+
       navigate("/dashboard");
+
     } catch (error) {
       setError(
-        error instanceof TypeError
-          ? "No se pudo conectar con el servidor"
-          : error.message
+        error.message || "No se pudo iniciar sesión."
       );
     } finally {
       setCargando(false);
