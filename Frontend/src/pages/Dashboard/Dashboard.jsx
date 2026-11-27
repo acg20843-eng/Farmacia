@@ -11,6 +11,22 @@ function mostrarFecha(fecha) {
   return formatearFecha(fecha, "Fecha no disponible");
 }
 
+function fechaMovimientoLocal(fecha) {
+  if (fecha instanceof Date) {
+    return fechaISO(fecha);
+  }
+
+  const texto = String(fecha || "");
+  if (/^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/i.test(texto)) {
+    const fechaParseada = new Date(texto);
+    if (!Number.isNaN(fechaParseada.getTime())) {
+      return fechaISO(fechaParseada);
+    }
+  }
+
+  return fechaISO(texto);
+}
+
 function mostrarFechaHora(fecha) {
   const fechaLocal = fechaHoraLocal(fecha);
   if (!fechaLocal) {
@@ -87,7 +103,7 @@ export default function Dashboard() {
 
   const hoy = diaUTC(new Date());
   const movimientosHoy = movimientos.filter(
-    (movimiento) => fechaISO(fechaHoraLocal(movimiento.fecha) || movimiento.fecha) === fechaISO(new Date())
+    (movimiento) => fechaISO(movimiento.fecha) === fechaISO(new Date())
   ).length;
   const lotesPorCaducar = lotes
     .map((lote) => ({
