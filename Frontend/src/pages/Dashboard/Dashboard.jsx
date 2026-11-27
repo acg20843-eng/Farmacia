@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import PageTitle from "../../components/common/PageTitle";
 import { apiRequest } from "../../services/api";
-import { codigoMedicamento, diaUTC, fechaISO, formatearFecha } from "../../utils/formato";
+import { codigoMedicamento, diaUTC, fechaHoraLocal, fechaISO, formatearFecha } from "../../utils/formato";
 import "./Dashboard.css";
 
 const DIAS_PARA_CADUCAR = 30;
@@ -12,12 +12,14 @@ function mostrarFecha(fecha) {
 }
 
 function mostrarFechaHora(fecha) {
-  const texto = fecha instanceof Date
-    ? `${fechaISO(fecha)} ${String(fecha.getHours()).padStart(2, "0")}:${String(fecha.getMinutes()).padStart(2, "0")}`
-    : String(fecha || "");
-  const dia = mostrarFecha(texto.slice(0, 10));
-  const hora = texto.slice(11, 16);
-  return hora ? `${dia} · ${hora}` : dia;
+  const fechaLocal = fechaHoraLocal(fecha);
+  if (!fechaLocal) {
+    return mostrarFecha(fecha);
+  }
+
+  const dia = mostrarFecha(fechaISO(fechaLocal));
+  const hora = `${String(fechaLocal.getHours()).padStart(2, "0")}:${String(fechaLocal.getMinutes()).padStart(2, "0")}`;
+  return `${dia} · ${hora}`;
 }
 
 function calcularExistenciasBajas(medicamentos, lotes) {
@@ -85,7 +87,7 @@ export default function Dashboard() {
 
   const hoy = diaUTC(new Date());
   const movimientosHoy = movimientos.filter(
-    (movimiento) => fechaISO(movimiento.fecha) === fechaISO(new Date())
+    (movimiento) => fechaISO(fechaHoraLocal(movimiento.fecha) || movimiento.fecha) === fechaISO(new Date())
   ).length;
   const lotesPorCaducar = lotes
     .map((lote) => ({

@@ -8,7 +8,7 @@ import useCrudForm from "../../hooks/useCrudForm";
 import { apiRequest } from "../../services/api";
 import { obtenerUsuarioActual } from "../../utils/session";
 import { normalizarRol } from "../../utils/roles";
-import { codigoMedicamento, fechaISO, formatearFecha } from "../../utils/formato";
+import { codigoMedicamento, fechaHoraLocal, fechaISO, formatearFecha } from "../../utils/formato";
 
 const formularioInicial = {
   lote_id: "",
@@ -17,16 +17,18 @@ const formularioInicial = {
 };
 
 function mostrarFechaHora(valor) {
-  const fecha = valor instanceof Date
-    ? `${fechaISO(valor)} ${String(valor.getHours()).padStart(2, "0")}:${String(valor.getMinutes()).padStart(2, "0")}`
-    : String(valor || "");
-  const dia = formatearFecha(fecha);
+  const fechaLocal = fechaHoraLocal(valor);
+  if (!fechaLocal) {
+    return formatearFecha(valor);
+  }
+
+  const dia = formatearFecha(fechaISO(fechaLocal));
   if (dia === "—") {
     return dia;
   }
 
-  const hora = fecha.slice(11, 16);
-  return hora ? `${dia} ${hora}` : dia;
+  const hora = `${String(fechaLocal.getHours()).padStart(2, "0")}:${String(fechaLocal.getMinutes()).padStart(2, "0")}`;
+  return `${dia} ${hora}`;
 }
 
 export default function Movimientos() {
