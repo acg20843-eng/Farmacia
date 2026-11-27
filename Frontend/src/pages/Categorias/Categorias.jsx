@@ -116,7 +116,7 @@ export default function Categorias() {
   }
 
   async function eliminarCategoria(categoria) {
-    if (!window.confirm(`¿Eliminar la categoría "${categoria.nombre}"? Esta acción no se puede deshacer.`)) {
+    if (!window.confirm(` ¿Eliminar la categoría "${categoria.nombre}"? Esta acción no se puede deshacer.`)) {
       return;
     }
 
